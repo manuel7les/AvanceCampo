@@ -61,10 +61,10 @@ function preparar() {
   }
   if (!ss.getSheetByName('Labores')) {
     const sh = ss.insertSheet('Labores');
-    sh.getRange(1, 1, 7, 2).setValues([
+    sh.getRange(1, 1, 5, 2).setValues([
       ['Labor', 'Unidad'],
-      ['Poda', 'plantas'], ['Riego', 'ha'], ['Deshierbo', 'ha'],
-      ['Fumigación', 'ha'], ['Fertilización', 'ha'], ['Cosecha', 'jabas']
+      ['Deshierbo manual', 'plantas'], ['Deshierbo a lampa', 'plantas'],
+      ['Encamado', 'm lineales'], ['Cosecha', 'jabas']
     ]);
     sh.getRange(1, 1, 1, 2).setFontWeight('bold');
     sh.setFrozenRows(1);
