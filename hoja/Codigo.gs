@@ -5,12 +5,17 @@
  *
  * Pestañas que crea solo:
  *  - Reportes: una fila por cada reporte de los auxiliares.
- *  - Labores:  lista de labores y su unidad (puedes editarla).
- *  - Lotes:    lista de lotes (puedes editarla).
+ *  - Labores:  Labor | Unidad | Por válvulas (Sí/No).
+ *  - Lotes:    Lote | Válvulas (ej.: 35-41  o  35,36,37,40).
  */
 
-const COLS = ['ID', 'Fecha', 'Auxiliar', 'Labor', 'Lote', 'Cantidad', 'Unidad', 'Nota',
-              'Registrado', 'Última edición', 'Dispositivo'];
+const COLS = ['ID', 'Fecha', 'Auxiliar', 'Labor', 'Lote', 'Cantidad', 'Unidad',
+              'Observaciones (válvulas)', 'Nota', 'Registrado', 'Última edición',
+              'Dispositivo', 'Datos válvulas'];
+const OCULTAS = ['ID', 'Dispositivo', 'Datos válvulas'];
+
+const LOTES = ['L1A', 'L2A', 'L3A', 'L4A', 'L5A', 'L6A', 'L7A', 'L8A', 'L9A', 'L10A', 'L11A',
+               'L12A', 'L12B', 'L13A', 'L13B', 'L14A', 'L15A', 'L16A'];
 
 function doGet(e) {
   let p = {};
@@ -44,47 +49,101 @@ function atender(p) {
   }
 }
 
-/** Crea las pestañas si faltan. También puedes ejecutarla a mano una vez. */
+/** Crea o completa las pestañas. También puedes ejecutarla a mano una vez. */
 function preparar() {
   const ss = SpreadsheetApp.getActive();
   let rep = ss.getSheetByName('Reportes');
   if (!rep) {
     rep = ss.insertSheet('Reportes', 0);
-    rep.getRange(1, 1, 1, COLS.length).setValues([COLS]).setFontWeight('bold')
-      .setBackground('#2E6B3F').setFontColor('#FFFFFF');
+    rep.getRange(1, 1, 1, COLS.length).setValues([COLS]);
     rep.setFrozenRows(1);
-    rep.getRange('B:B').setNumberFormat('dd/mm/yyyy');
-    rep.getRange('I:J').setNumberFormat('dd/mm/yyyy hh:mm');
-    rep.hideColumns(1); rep.hideColumns(11);
     const hoja1 = ss.getSheetByName('Hoja 1') || ss.getSheetByName('Sheet1');
     if (hoja1 && hoja1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(hoja1);
   }
-  if (!ss.getSheetByName('Labores')) {
-    const sh = ss.insertSheet('Labores');
-    sh.getRange(1, 1, 5, 2).setValues([
-      ['Labor', 'Unidad'],
-      ['Deshierbo manual', 'plantas'], ['Deshierbo a lampa', 'plantas'],
-      ['Encamado', 'm lineales'], ['Cosecha', 'jabas']
+  // agrega columnas que falten (si la hoja se creó con una versión anterior)
+  const cab = cabecera(rep);
+  const faltan = COLS.filter(c => !(c in cab));
+  if (faltan.length) {
+    const desde = rep.getLastColumn() + 1;
+    rep.getRange(1, desde, 1, faltan.length).setValues([faltan]);
+  }
+  if (faltan.length || rep.getRange(1, 1).getFontWeight() !== 'bold') {
+    const c = cabecera(rep);
+    rep.getRange(1, 1, 1, rep.getLastColumn()).setFontWeight('bold')
+      .setBackground('#2E6B3F').setFontColor('#FFFFFF');
+    rep.getRange(2, c['Fecha'] + 1, rep.getMaxRows() - 1, 1).setNumberFormat('dd/mm/yyyy');
+    rep.getRange(2, c['Registrado'] + 1, rep.getMaxRows() - 1, 1).setNumberFormat('dd/mm/yyyy hh:mm');
+    rep.getRange(2, c['Última edición'] + 1, rep.getMaxRows() - 1, 1).setNumberFormat('dd/mm/yyyy hh:mm');
+    rep.setColumnWidth(c['Observaciones (válvulas)'] + 1, 320);
+    OCULTAS.forEach(n => rep.hideColumns(c[n] + 1));
+  }
+
+  let lab = ss.getSheetByName('Labores');
+  if (!lab) {
+    lab = ss.insertSheet('Labores');
+    lab.getRange(1, 1, 5, 3).setValues([
+      ['Labor', 'Unidad', 'Por válvulas'],
+      ['Deshierbo manual', 'plantas', 'Sí'], ['Deshierbo a lampa', 'plantas', 'Sí'],
+      ['Encamado', 'm lineales', 'No'], ['Cosecha', 'jabas', 'No']
     ]);
-    sh.getRange(1, 1, 1, 2).setFontWeight('bold');
-    sh.setFrozenRows(1);
+    lab.getRange(1, 1, 1, 3).setFontWeight('bold');
+    lab.setFrozenRows(1);
+  } else if (!String(lab.getRange(1, 3).getValue()).trim()) {
+    lab.getRange(1, 3).setValue('Por válvulas').setFontWeight('bold');
   }
-  if (!ss.getSheetByName('Lotes')) {
-    const sh = ss.insertSheet('Lotes');
-    sh.getRange(1, 1, 5, 1).setValues([['Lote'], ['Lote 1'], ['Lote 2'], ['Lote 3'], ['Lote 4']]);
-    sh.getRange(1, 1, 1, 1).setFontWeight('bold');
-    sh.setFrozenRows(1);
+
+  let lot = ss.getSheetByName('Lotes');
+  if (!lot) {
+    lot = ss.insertSheet('Lotes');
+    lot.getRange('B:B').setNumberFormat('@'); // texto, para que "35-41" no se vuelva fecha
+    const filas = [['Lote', 'Válvulas']].concat(LOTES.map(l => [l, l === 'L8A' ? '35-41' : '']));
+    lot.getRange(1, 1, filas.length, 2).setValues(filas);
+    lot.getRange(1, 1, 1, 2).setFontWeight('bold');
+    lot.setFrozenRows(1);
+    lot.setColumnWidth(2, 220);
+  } else if (!String(lot.getRange(1, 2).getValue()).trim()) {
+    lot.getRange('B:B').setNumberFormat('@');
+    lot.getRange(1, 2).setValue('Válvulas').setFontWeight('bold');
   }
+}
+
+function cabecera(sh) {
+  const n = Math.max(sh.getLastColumn(), 1);
+  const out = {};
+  sh.getRange(1, 1, 1, n).getValues()[0].forEach((v, i) => { if (v !== '') out[String(v)] = i; });
+  return out;
+}
+
+/** "35-41" → 35..41 · "35,36,40" → lista · "35-38, 40" → mezcla */
+function leerValvulas(v) {
+  const out = [];
+  String(v == null ? '' : v).split(/[,;\s]+/).forEach(parte => {
+    const p = parte.trim();
+    if (!p) return;
+    const m = /^(\d+)\s*[-–]\s*(\d+)$/.exec(p);
+    if (m) {
+      const a = Number(m[1]), b = Number(m[2]);
+      if (b >= a && b - a < 300) for (let i = a; i <= b; i++) out.push(String(i));
+    } else {
+      out.push(p);
+    }
+  });
+  return out.filter((x, i) => out.indexOf(x) === i);
 }
 
 function leerConfig() {
   const ss = SpreadsheetApp.getActive();
-  const lab = ss.getSheetByName('Labores').getDataRange().getValues().slice(1)
+  const labores = ss.getSheetByName('Labores').getDataRange().getValues().slice(1)
     .filter(r => String(r[0]).trim())
-    .map(r => ({ nombre: String(r[0]).trim(), unidad: String(r[1] || '').trim() || '%' }));
-  const lotes = ss.getSheetByName('Lotes').getDataRange().getValues().slice(1)
-    .map(r => String(r[0]).trim()).filter(Boolean);
-  return { labores: lab, lotes: lotes };
+    .map(r => ({
+      nombre: String(r[0]).trim(),
+      unidad: String(r[1] || '').trim() || '%',
+      valvulas: /^s[ií]/i.test(String(r[2] || '').trim())
+    }));
+  const lotes = ss.getSheetByName('Lotes').getDataRange().getDisplayValues().slice(1)
+    .filter(r => String(r[0]).trim())
+    .map(r => ({ nombre: String(r[0]).trim(), valvulas: leerValvulas(r[1]) }));
+  return { labores: labores, lotes: lotes };
 }
 
 function texto(v) { return v == null ? '' : String(v).slice(0, 300); }
@@ -100,27 +159,56 @@ function aFecha(s) {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 }
 
+/** "35=T;36=M;37=S" → "Terminadas: 35–36 · A medias: 37 · Sin tocar: 38–41" */
+function rango(list) {
+  const out = [];
+  let i = 0;
+  while (i < list.length) {
+    let j = i;
+    while (j + 1 < list.length && /^\d+$/.test(list[j]) && /^\d+$/.test(list[j + 1]) &&
+           Number(list[j + 1]) === Number(list[j]) + 1) j++;
+    out.push(j - i >= 2 ? list[i] + '–' + list[j] : list.slice(i, j + 1).join(', '));
+    i = j + 1;
+  }
+  return out.join(', ');
+}
+
+function observacion(datos) {
+  const pares = String(datos || '').split(';').filter(Boolean).map(p => p.split('='));
+  if (!pares.length) return '';
+  const de = k => pares.filter(p => p[1] === k).map(p => p[0]);
+  const partes = [];
+  const t = de('T'), m = de('M'), s = de('S');
+  if (t.length) partes.push('Terminadas: ' + rango(t));
+  if (m.length) partes.push('A medias: ' + rango(m));
+  if (s.length) partes.push('Sin tocar: ' + rango(s));
+  return partes.join(' · ');
+}
+
 function misReportes(dispositivo) {
   if (!dispositivo) return [];
   const sh = SpreadsheetApp.getActive().getSheetByName('Reportes');
   const n = sh.getLastRow() - 1;
   if (n < 1) return [];
+  const c = cabecera(sh);
   const desde = new Date(Date.now() - 60 * 24 * 3600 * 1000); // últimos 60 días
-  return sh.getRange(2, 1, n, COLS.length).getValues()
-    .filter(r => String(r[10]) === String(dispositivo) && (!(r[1] instanceof Date) || r[1] >= desde))
+  return sh.getRange(2, 1, n, sh.getLastColumn()).getValues()
+    .filter(r => String(r[c['Dispositivo']]) === String(dispositivo) &&
+                 (!(r[c['Fecha']] instanceof Date) || r[c['Fecha']] >= desde))
     .map(r => ({
-      id: String(r[0]), fecha: fechaTexto(r[1]), auxiliar: String(r[2]),
-      labor: String(r[3]), lote: String(r[4]), cantidad: Number(r[5]) || 0,
-      unidad: String(r[6]), nota: String(r[7] || ''),
-      creado: r[8] instanceof Date ? r[8].getTime() : 0,
-      editado: r[9] instanceof Date ? r[9].getTime() : 0
+      id: String(r[c['ID']]), fecha: fechaTexto(r[c['Fecha']]), auxiliar: String(r[c['Auxiliar']]),
+      labor: String(r[c['Labor']]), lote: String(r[c['Lote']]), cantidad: Number(r[c['Cantidad']]) || 0,
+      unidad: String(r[c['Unidad']]), nota: String(r[c['Nota']] || ''),
+      valvulas: String(r[c['Datos válvulas']] || ''),
+      creado: r[c['Registrado']] instanceof Date ? r[c['Registrado']].getTime() : 0,
+      editado: r[c['Última edición']] instanceof Date ? r[c['Última edición']].getTime() : 0
     }));
 }
 
-function filaDe(sh, id) {
+function filaDe(sh, col, id) {
   const n = sh.getLastRow() - 1;
   if (n < 1) return -1;
-  const ids = sh.getRange(2, 1, n, 1).getValues();
+  const ids = sh.getRange(2, col + 1, n, 1).getValues();
   for (let i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) return i + 2;
   return -1;
 }
@@ -134,19 +222,32 @@ function guardar(p) {
   lock.waitLock(20000);
   try {
     const sh = SpreadsheetApp.getActive().getSheetByName('Reportes');
-    const fila = filaDe(sh, r.id);
+    const c = cabecera(sh);
+    const ancho = sh.getLastColumn();
+    const fila = filaDe(sh, c['ID'], r.id);
     const ahora = new Date();
-    const valores = [String(r.id), aFecha(r.fecha), texto(p.auxiliar), texto(r.labor), texto(r.lote),
-                     cantidad, texto(r.unidad), texto(r.nota), ahora, '', String(p.dispositivo)];
+    let fil = new Array(ancho).fill('');
     if (fila > 0) {
-      const actual = sh.getRange(fila, 1, 1, COLS.length).getValues()[0];
-      if (String(actual[10]) !== String(p.dispositivo)) throw new Error('Este reporte es de otro auxiliar');
-      valores[8] = actual[8];
-      valores[9] = ahora;
-      sh.getRange(fila, 1, 1, COLS.length).setValues([valores]);
+      fil = sh.getRange(fila, 1, 1, ancho).getValues()[0];
+      if (String(fil[c['Dispositivo']]) !== String(p.dispositivo)) throw new Error('Este reporte es de otro auxiliar');
+      fil[c['Última edición']] = ahora;
     } else {
-      sh.appendRow(valores);
+      fil[c['Registrado']] = ahora;
     }
+    const datos = texto(r.valvulas).slice(0, 2000);
+    fil[c['ID']] = String(r.id);
+    fil[c['Fecha']] = aFecha(r.fecha);
+    fil[c['Auxiliar']] = texto(p.auxiliar);
+    fil[c['Labor']] = texto(r.labor);
+    fil[c['Lote']] = texto(r.lote);
+    fil[c['Cantidad']] = cantidad;
+    fil[c['Unidad']] = texto(r.unidad);
+    fil[c['Observaciones (válvulas)']] = observacion(datos);
+    fil[c['Nota']] = texto(r.nota);
+    fil[c['Dispositivo']] = String(p.dispositivo);
+    fil[c['Datos válvulas']] = datos;
+    if (fila > 0) sh.getRange(fila, 1, 1, ancho).setValues([fil]);
+    else sh.appendRow(fil);
     return { ok: true };
   } finally {
     lock.releaseLock();
@@ -159,9 +260,12 @@ function eliminar(p) {
   lock.waitLock(20000);
   try {
     const sh = SpreadsheetApp.getActive().getSheetByName('Reportes');
-    const fila = filaDe(sh, p.id);
+    const c = cabecera(sh);
+    const fila = filaDe(sh, c['ID'], p.id);
     if (fila < 0) return { ok: true };
-    if (String(sh.getRange(fila, 11).getValue()) !== String(p.dispositivo)) throw new Error('Este reporte es de otro auxiliar');
+    if (String(sh.getRange(fila, c['Dispositivo'] + 1).getValue()) !== String(p.dispositivo)) {
+      throw new Error('Este reporte es de otro auxiliar');
+    }
     sh.deleteRow(fila);
     return { ok: true };
   } finally {

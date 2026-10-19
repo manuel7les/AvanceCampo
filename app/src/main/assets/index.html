@@ -110,6 +110,22 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .acts{display:flex;gap:8px;justify-content:flex-end}
 .edit{display:flex;flex-direction:column;gap:10px;background:var(--soft);border-radius:14px;padding:12px}
 .edit .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.valv{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.valv .vh{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;background:var(--soft);font-size:.82rem;color:var(--muted);font-weight:600}
+.valv .vh button{border:0;background:var(--surface);border-radius:9px;padding:6px 10px;font-weight:700;font-size:.8rem;color:var(--accent)}
+.vrow{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line)}
+.vrow:first-of-type{border-top:0}
+.vrow b{min-width:56px;font-size:.95rem}
+.vrow b small{display:block;font-size:.66rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-radius:11px;padding:3px;gap:3px}
+.seg button{border:0;background:none;border-radius:9px;padding:9px 2px;font-size:.8rem;font-weight:600;color:var(--muted);white-space:nowrap}
+.seg button.T.on{background:var(--ok);color:#fff}
+.seg button.M.on{background:var(--warn);color:#fff}
+.seg button.S.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.vnone{padding:12px;font-size:.86rem;color:var(--muted)}
+.vsum{display:block;font-size:.8rem;color:var(--muted);margin-top:2px}
+.vsum i{font-style:normal;font-weight:700}
+.vsum .t{color:var(--ok)} .vsum .m{color:var(--warn)}
 .edit label{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:flex;flex-direction:column;gap:4px}
 .edit .inp{min-height:44px;padding:9px 11px;font-size:.95rem;border-radius:11px}
 
@@ -152,15 +168,16 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 'use strict';
 // Enlace de la Hoja de Google (aplicación web de Apps Script). Se puede cambiar en Ajustes.
 const DEFAULT_URL = '';
-const VERSION = '1.1';
+const VERSION = '1.2';
 
 const COLORS = ['#2E7D4F','#2F6FB5','#B5562F','#8A5CC2','#C29A1F','#2B9A9A','#C2416E','#5E7A2E','#6B6F80'];
 const DEFAULT_CONFIG = {
   labores: [
-    {nombre:'Deshierbo manual',unidad:'plantas'},{nombre:'Deshierbo a lampa',unidad:'plantas'},
+    {nombre:'Deshierbo manual',unidad:'plantas',valvulas:true},{nombre:'Deshierbo a lampa',unidad:'plantas',valvulas:true},
     {nombre:'Encamado',unidad:'m lineales'},{nombre:'Cosecha',unidad:'jabas'}
   ],
-  lotes: ['Lote 1','Lote 2','Lote 3','Lote 4']
+  lotes: ['L1A','L2A','L3A','L4A','L5A','L6A','L7A','L8A','L9A','L10A','L11A','L12A','L12B','L13A','L13B','L14A','L15A','L16A']
+    .map(n => ({nombre:n, valvulas: n === 'L8A' ? ['35','36','37','38','39','40','41'] : []}))
 };
 
 const LS = {
@@ -194,11 +211,12 @@ function initials(s){ const p = String(s).trim().split(/\s+/); return ((p[0]||''
 const S = {
   nombre: LS.get('ac_nombre',''),
   url: LS.get('ac_url','') || DEFAULT_URL,
-  config: LS.get('ac_config', DEFAULT_CONFIG),
+  config: normCfg(LS.get('ac_config', DEFAULT_CONFIG)),
   reps: LS.get('ac_reps', []),
   lastSync: LS.get('ac_last', 0),
   tab: 'inicio',
-  form: { fecha: hoy(), labor:'', lote:'', cantidad:'', nota:'' },
+  form: { fecha: hoy(), labor:'', lote:'', cantidad:'', nota:'', valv:{} },
+  edit: null,
   formErr: '',
   editId: null, editErr: '', delId: null,
   sheet: false, setEdit: null, setErr: '',
@@ -210,6 +228,54 @@ function colorOf(labor){
   const i = S.config.labores.findIndex(l => l.nombre === labor);
   if (i >= 0) return COLORS[i % COLORS.length];
   let h = 0; for (const c of String(labor)) h = (h*31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length];
+}
+function normCfg(c){
+  c = c || {};
+  const labores = (c.labores || []).map(l => ({nombre:String(l.nombre), unidad:String(l.unidad || ''), valvulas: !!l.valvulas}));
+  const lotes = (c.lotes || []).map(l => typeof l === 'string' ? {nombre:l, valvulas:[]} : {nombre:String(l.nombre), valvulas:(l.valvulas || []).map(String)});
+  return {labores, lotes};
+}
+function porValv(labor){ const l = S.config.labores.find(x => x.nombre === labor); return !!(l && l.valvulas); }
+function valvesOf(lote){ const l = S.config.lotes.find(x => x.nombre === lote); return l ? l.valvulas : []; }
+function loteNames(){ return S.config.lotes.map(l => l.nombre); }
+// Válvulas: se guardan como texto "35=T;36=M;37=S" (T terminada, M a medias, S sin tocar)
+function valvString(labor, lote, map){
+  if (!porValv(labor)) return '';
+  return valvesOf(lote).map(v => v + '=' + ((map || {})[v] || 'S')).join(';');
+}
+function valvMap(str){ const m = {}; String(str || '').split(';').forEach(p => { const [k, v] = p.split('='); if (k) m[k] = v || 'S'; }); return m; }
+function rango(list){
+  const out = []; let i = 0;
+  while (i < list.length){
+    let j = i;
+    while (j + 1 < list.length && /^\d+$/.test(list[j]) && /^\d+$/.test(list[j+1]) && Number(list[j+1]) === Number(list[j]) + 1) j++;
+    out.push(j - i >= 2 ? list[i] + '–' + list[j] : list.slice(i, j + 1).join(', '));
+    i = j + 1;
+  }
+  return out.join(', ');
+}
+function valvResumen(str){
+  const pairs = String(str || '').split(';').filter(Boolean).map(p => p.split('='));
+  if (!pairs.length) return '';
+  const g = k => pairs.filter(p => p[1] === k).map(p => p[0]);
+  const t = g('T'), m = g('M');
+  const parts = [];
+  if (t.length) parts.push(`<i class="t">Terminadas</i> ${esc(rango(t))}`);
+  if (m.length) parts.push(`<i class="m">A medias</i> ${esc(rango(m))}`);
+  if (!parts.length) parts.push('Ninguna válvula avanzada');
+  return parts.join(' · ');
+}
+function valvWidget(pref, labor, lote, map){
+  if (!porValv(labor) || !lote) return '';
+  const vs = valvesOf(lote);
+  if (!vs.length) return `<div class="field"><div class="lbl">Válvulas</div><div class="valv"><div class="vnone">Este lote todavía no tiene válvulas cargadas en la hoja. Avísale al encargado.</div></div></div>`;
+  const nT = vs.filter(v => map[v] === 'T').length, nM = vs.filter(v => map[v] === 'M').length;
+  return `<div class="field"><div class="lbl">Válvulas de ${esc(lote)}</div><div class="valv">
+    <div class="vh"><span>${nT} terminadas · ${nM} a medias · ${vs.length - nT - nM} sin tocar</span><button data-act="valv-all" data-p="${pref}">Todas terminadas</button></div>
+    ${vs.map(v => { const st = map[v] || 'S'; return `<div class="vrow"><b><small>Válvula</small>${esc(v)}</b><div class="seg" role="group" aria-label="Válvula ${esc(v)}">
+      ${[['T','Terminada'],['M','A medias'],['S','Sin tocar']].map(([k,l]) => `<button class="${k}${st === k ? ' on' : ''}" data-act="valv" data-p="${pref}" data-k="${esc(v)}" data-v="${k}" aria-pressed="${st === k}">${l}</button>`).join('')}
+    </div></div>`; }).join('')}
+  </div></div>`;
 }
 function unidadOf(labor){ const l = S.config.labores.find(x => x.nombre === labor); return l ? l.unidad : ''; }
 
@@ -230,7 +296,7 @@ function api(payload){
   }
   return fetch(u).then(r => r.text()).then(parse);
 }
-function plain(r){ return {id:r.id, fecha:r.fecha, labor:r.labor, lote:r.lote, cantidad:r.cantidad, unidad:r.unidad, nota:r.nota||''}; }
+function plain(r){ return {id:r.id, fecha:r.fecha, labor:r.labor, lote:r.lote, cantidad:r.cantidad, unidad:r.unidad, nota:r.nota||'', valvulas:r.valvulas||''}; }
 
 async function sync(quiet){
   if (S.syncing || !S.url) return;
@@ -253,7 +319,7 @@ async function sync(quiet){
       }
     }
     const cfg = await api({accion:'config'});
-    if (cfg.labores && cfg.labores.length){ S.config = {labores:cfg.labores, lotes:cfg.lotes||[]}; LS.set('ac_config', S.config); }
+    if (cfg.labores && cfg.labores.length){ S.config = normCfg({labores:cfg.labores, lotes:cfg.lotes||[]}); LS.set('ac_config', S.config); }
     const m = await api({accion:'mis', dispositivo:DEV});
     const pend = S.reps.filter(r => r.estado !== 'ok');
     S.reps = pend.concat((m.reportes||[]).filter(s => !pend.some(p => p.id === s.id)).map(s => Object.assign(s, {estado:'ok', enviado:true})));
@@ -342,9 +408,10 @@ function viewReportar(){
       <span class="ico" style="background:${colorOf(l.nombre)}">${esc(initials(l.nombre))}</span><span><b>${esc(l.nombre)}</b><small>en ${esc(l.unidad)}</small></span></button>`).join('')}
   </div></div>
   <div class="field"><div class="lbl">Lote</div><div class="chips">
-    ${S.config.lotes.map(l => `<button class="chipbtn${f.lote === l ? ' sel' : ''}" data-act="pick-lote" data-v="${esc(l)}">${esc(l)}</button>`).join('')}
+    ${loteNames().map(l => `<button class="chipbtn${f.lote === l ? ' sel' : ''}" data-act="pick-lote" data-v="${esc(l)}">${esc(l)}</button>`).join('')}
   </div></div>
-  <div class="field"><label for="f-cant">${u === '%' ? 'Porcentaje de avance' : 'Cantidad avanzada'}</label>
+  ${valvWidget('f', f.labor, f.lote, f.valv)}
+  <div class="field"><label for="f-cant">${u === '%' ? 'Porcentaje de avance' : u === 'plantas' ? 'Plantas avanzadas' : 'Cantidad avanzada'}</label>
     <div class="qty"><input id="f-cant" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(f.cantidad)}"><span>${esc(u || '—')}</span></div></div>
   <div class="field"><label for="f-nota">Nota (opcional)</label><input class="inp" id="f-nota" maxlength="200" placeholder="Ej.: faltó agua en la tarde" value="${esc(f.nota)}"></div>
   ${S.formErr ? `<div class="err">${esc(S.formErr)}</div>` : ''}
@@ -368,14 +435,15 @@ function viewMis(){
 }
 
 function repItem(r){
-  if (S.editId === r.id){
-    const labs = S.config.labores.map(l => l.nombre);
+  if (S.editId === r.id && S.edit){
+    const e = S.edit, labs = S.config.labores.map(l => l.nombre);
     return `<div class="rep"><div class="edit">
-      <div class="two"><label>Fecha<input class="inp" type="date" id="e-fecha" value="${esc(r.fecha)}" max="${hoy()}"></label>
-      <label>Cantidad<input class="inp" type="number" inputmode="decimal" step="any" id="e-cant" value="${esc(r.cantidad)}"></label></div>
-      <div class="two"><label>Labor<select class="inp" id="e-labor">${opts(labs, r.labor)}</select></label>
-      <label>Lote<select class="inp" id="e-lote">${opts(S.config.lotes, r.lote)}</select></label></div>
-      <label>Nota<input class="inp" id="e-nota" maxlength="200" value="${esc(r.nota)}"></label>
+      <div class="two"><label>Fecha<input class="inp" type="date" id="e-fecha" value="${esc(e.fecha)}" max="${hoy()}"></label>
+      <label>${esc(unidadOf(e.labor) || 'Cantidad')}<input class="inp" type="number" inputmode="decimal" step="any" id="e-cant" value="${esc(e.cantidad)}"></label></div>
+      <div class="two"><label>Labor<select class="inp" id="e-labor">${opts(labs, e.labor)}</select></label>
+      <label>Lote<select class="inp" id="e-lote">${opts(loteNames(), e.lote)}</select></label></div>
+      ${valvWidget('e', e.labor, e.lote, e.valv)}
+      <label>Nota<input class="inp" id="e-nota" maxlength="200" value="${esc(e.nota)}"></label>
       ${S.editErr ? `<div class="err">${esc(S.editErr)}</div>` : ''}
       <div class="acts"><button class="ghost" data-act="cancel-edit">Cancelar</button><button class="primary" style="width:auto;padding:9px 18px;font-size:.95rem;border-radius:12px" data-act="save-edit" data-id="${esc(r.id)}">Guardar</button></div>
     </div></div>`;
@@ -383,7 +451,7 @@ function repItem(r){
   const del = S.delId === r.id;
   return `<div class="rep"><div class="row">
     <div class="ico" style="background:${colorOf(r.labor)}">${esc(initials(r.labor))}</div>
-    <div class="nm"><b>${esc(r.labor)} · ${esc(r.lote)}</b>${r.nota ? `<span>${esc(r.nota)}</span>` : ''}</div>
+    <div class="nm"><b>${esc(r.labor)} · ${esc(r.lote)}</b>${r.valvulas ? `<span class="vsum">${valvResumen(r.valvulas)}</span>` : ''}${r.nota ? `<span>${esc(r.nota)}</span>` : ''}</div>
     <div class="amt">${num(r.cantidad)} ${esc(r.unidad)}${r.estado === 'ok' ? '<span class="st ok">Enviado</span>' : '<span class="st pend">Sin enviar</span>'}</div>
   </div>
   <div class="acts">${del
@@ -441,12 +509,20 @@ function render(){
 
 document.addEventListener('input', ev => {
   const id = ev.target.id;
+  if (S.edit && id === 'e-fecha') S.edit.fecha = ev.target.value;
+  else if (S.edit && id === 'e-cant') S.edit.cantidad = ev.target.value;
+  else if (S.edit && id === 'e-nota') S.edit.nota = ev.target.value;
   if (id === 'f-fecha') S.form.fecha = ev.target.value;
   else if (id === 'f-cant') S.form.cantidad = ev.target.value;
   else if (id === 'f-nota') S.form.nota = ev.target.value;
   if (S.formErr && id && id.startsWith('f-')){ S.formErr = ''; const e = document.querySelector('.app > .err'); if (e) e.remove(); }
 });
-document.addEventListener('change', ev => { if (ev.target.id === 'f-fecha') S.form.fecha = ev.target.value || hoy(); });
+document.addEventListener('change', ev => {
+  const id = ev.target.id;
+  if (id === 'f-fecha') S.form.fecha = ev.target.value || hoy();
+  else if (S.edit && id === 'e-labor'){ S.edit.labor = ev.target.value; S.editErr = ''; render(); }
+  else if (S.edit && id === 'e-lote'){ S.edit.lote = ev.target.value; S.edit.valv = {}; S.editErr = ''; render(); }
+});
 function readForm(){
   const g = id => document.getElementById(id);
   if (g('f-fecha')) S.form.fecha = g('f-fecha').value || S.form.fecha;
@@ -468,6 +544,7 @@ function validar(r){
   const c = Number(String(r.cantidad).replace(',', '.'));
   if (!(c > 0)) return 'Escribe una cantidad mayor que cero.';
   if (r.unidad === '%' && c > 100) return 'El porcentaje no puede pasar de 100.';
+  if (porValv(r.labor) && valvesOf(r.lote).length && !/=(T|M)/.test(r.valvulas || '')) return 'Marca qué válvulas terminaste o dejaste a medias.';
   return '';
 }
 
@@ -484,16 +561,24 @@ document.addEventListener('click', async ev => {
     }
     case 'tab': readForm(); S.tab = v; S.editId = null; S.delId = null; render(); window.scrollTo(0,0); if (v === 'mis') sync(true); return;
     case 'pick-labor': readForm(); S.form.labor = v; S.formErr = ''; render(); return;
-    case 'pick-lote': readForm(); S.form.lote = v; S.formErr = ''; render(); return;
+    case 'pick-lote': readForm(); if (S.form.lote !== v) S.form.valv = {}; S.form.lote = v; S.formErr = ''; render(); return;
+    case 'valv': case 'valv-all': {
+      const o = b.dataset.p === 'e' ? S.edit : S.form; if (!o) return;
+      if (act === 'valv') o.valv[b.dataset.k] = v;
+      else valvesOf(o.lote).forEach(k => { o.valv[k] = 'T'; });
+      if (b.dataset.p === 'e') S.editErr = ''; else S.formErr = '';
+      render(); return;
+    }
     case 'enviar': {
       readForm();
       const r = {id:newId(), fecha:S.form.fecha, labor:S.form.labor, lote:S.form.lote,
                  cantidad:S.form.cantidad, unidad:unidadOf(S.form.labor), nota:S.form.nota.trim(),
+                 valvulas:valvString(S.form.labor, S.form.lote, S.form.valv),
                  creado:Date.now(), estado:'pend'};
       const err = validar(r); S.formErr = err; if (err){ render(); return; }
       r.cantidad = Number(String(r.cantidad).replace(',', '.'));
       S.reps.unshift(r); save();
-      S.form = {fecha:S.form.fecha, labor:'', lote:'', cantidad:'', nota:''};
+      S.form = {fecha:S.form.fecha, labor:'', lote:'', cantidad:'', nota:'', valv:{}};
       if (!S.url){ render(); toast('Guardado en el celular. Falta conectar la hoja.', 'warn'); return; }
       S.sending = true; render();
       try{
@@ -503,17 +588,22 @@ document.addEventListener('click', async ev => {
       }catch(e){ S.online = false; toast(e.message === 'Sin conexión' ? 'Sin señal: se enviará luego.' : e.message, 'warn'); }
       S.sending = false; render(); return;
     }
-    case 'edit': S.editId = id; S.editErr = ''; S.delId = null; render(); return;
-    case 'cancel-edit': S.editId = null; S.editErr = ''; render(); return;
+    case 'edit': {
+      const r = S.reps.find(x => x.id === id); if (!r) return;
+      S.edit = {fecha:r.fecha, cantidad:r.cantidad, labor:r.labor, lote:r.lote, nota:r.nota || '', valv:valvMap(r.valvulas)};
+      S.editId = id; S.editErr = ''; S.delId = null; render(); return;
+    }
+    case 'cancel-edit': S.editId = null; S.edit = null; S.editErr = ''; render(); return;
     case 'save-edit': {
       const r = S.reps.find(x => x.id === id); if (!r) return;
-      const g = k => document.getElementById(k).value;
-      const n = Object.assign({}, r, {fecha:g('e-fecha'), cantidad:g('e-cant'), labor:g('e-labor'), lote:g('e-lote'), nota:g('e-nota').trim()});
+      const e = S.edit;
+      const n = Object.assign({}, r, {fecha:e.fecha, cantidad:e.cantidad, labor:e.labor, lote:e.lote, nota:String(e.nota).trim(),
+                                      valvulas:valvString(e.labor, e.lote, e.valv)});
       n.unidad = unidadOf(n.labor) || r.unidad;
       const err = validar(n); if (err){ S.editErr = err; render(); return; }
       n.cantidad = Number(String(n.cantidad).replace(',', '.'));
       Object.assign(r, n, {estado:'pend', editado:Date.now()}); save();
-      S.editId = null; S.editErr = ''; render();
+      S.editId = null; S.edit = null; S.editErr = ''; render();
       if (S.url){
         try{ await api({accion:'guardar', dispositivo:DEV, auxiliar:S.nombre, reporte:plain(r)}); r.estado = 'ok'; r.enviado = true; save(); toast('Corrección guardada ✓'); }
         catch(e){ toast(e.message === 'Sin conexión' ? 'Sin señal: la corrección se enviará luego.' : e.message, 'warn'); }
