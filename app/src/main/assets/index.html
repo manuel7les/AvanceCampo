@@ -1,0 +1,571 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Avance de Campo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: una columna — encabezado, contenido por pestaña, barra de pestañas abajo, hoja deslizable para Ajustes */
+:root{
+  --bg:#F1F3EC; --surface:#FFFFFF; --ink:#18241B; --muted:#5D6A5F; --line:#DDE3D6;
+  --accent:#2E6B3F; --accent-ink:#FFFFFF; --hero:#16301F; --hero-ink:#F1F5EE;
+  --ok:#1F8A4C; --bad:#C2412D; --warn:#B7791F; --soft:#E6EBDF;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1510; --surface:#172119; --ink:#E7EDE5; --muted:#9DAA9F; --line:#26332A;
+  --accent:#6FC48A; --accent-ink:#0E1510; --hero:#1C2E21; --hero-ink:#F1F5EE;
+  --ok:#5BD08C; --bad:#FF7D66; --warn:#E8B04A; --soft:#1F2B22; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1510; --surface:#172119; --ink:#E7EDE5; --muted:#9DAA9F; --line:#26332A;
+  --accent:#6FC48A; --accent-ink:#0E1510; --hero:#1C2E21; --hero-ink:#F1F5EE;
+  --ok:#5BD08C; --bad:#FF7D66; --warn:#E8B04A; --soft:#1F2B22; color-scheme:dark}
+
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent}
+.app{max-width:520px;margin:0 auto;padding-inline:16px;padding-block:16px 110px;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-size:1.3rem;font-weight:800;letter-spacing:-.01em}
+.brand small{display:block;font-family:var(--body);font-size:.78rem;font-weight:500;color:var(--muted);letter-spacing:0}
+.me{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px 4px 4px;font-weight:600;font-size:.88rem;max-width:55%}
+.me .av{width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:.8rem;font-weight:700;flex:none}
+.me span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.banner{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:14px;font-size:.88rem;background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+.banner b{display:block}
+.banner button{margin-left:auto;flex:none;border:0;background:var(--warn);color:#fff;border-radius:10px;padding:6px 10px;font-weight:600;font-size:.82rem}
+
+.hero{background:var(--hero);color:var(--hero-ink);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.hero .lbl{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;opacity:.7}
+.hero .big{font-family:var(--display);font-weight:800;font-size:2.6rem;line-height:1;letter-spacing:-.02em}
+.hero .big small{font-family:var(--body);font-size:1rem;font-weight:500;opacity:.75;letter-spacing:0}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.split div{background:rgba(255,255,255,.08);border-radius:14px;padding:10px 12px;min-width:0}
+.split b{display:block;font-size:1.15rem;font-weight:600}
+.split span{font-size:.78rem;opacity:.75}
+
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:92px;padding:0 2px}
+.days .d{display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+.days .col{width:100%;max-width:26px;border-radius:7px 7px 3px 3px;background:rgba(255,255,255,.14);min-height:4px}
+.days .col.on{background:#F2C14E}
+.days .n{font-size:.72rem;font-weight:700;min-height:1em}
+.days .w{font-size:.68rem;opacity:.7;text-transform:uppercase}
+.days .d.today .w{opacity:1;font-weight:700}
+
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sec-h h2{font-size:1.1rem;font-weight:600}
+.link{border:0;background:none;color:var(--accent);font-weight:600;font-size:.88rem;padding:4px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.empty{padding:22px 16px;text-align:center;color:var(--muted);font-size:.9rem}
+.empty b{display:block;color:var(--ink);font-size:1rem;margin-bottom:4px}
+
+.lab{display:grid;grid-template-columns:36px 1fr auto;gap:4px 12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.lab:first-child{border-top:0}
+.ico{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:.76rem;font-weight:700;color:#fff;grid-row:span 2;flex:none}
+.lab .nm{font-weight:600;min-width:0}
+.lab .amt{font-weight:700;text-align:right;white-space:nowrap}
+.lab .sub{grid-column:2/4;font-size:.78rem;color:var(--muted)}
+
+/* Reportar */
+.field{display:flex;flex-direction:column;gap:8px}
+.field>label,.field>.lbl{font-size:.8rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.opt{display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);background:var(--surface);border-radius:14px;padding:12px;text-align:left;min-height:58px;min-width:0}
+.opt .ico{width:30px;height:30px;border-radius:9px;font-size:.7rem;grid-row:auto}
+.opt b{display:block;font-weight:600;line-height:1.2;overflow-wrap:anywhere}
+.opt small{display:block;color:var(--muted);font-size:.76rem}
+.opt.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface));box-shadow:0 0 0 1px var(--accent) inset}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chipbtn{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 16px;font-weight:600;font-size:.92rem}
+.chipbtn.sel{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.inp{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;min-height:50px}
+.inp:focus{border-color:var(--accent);outline:none}
+.qty{display:flex;align-items:stretch;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
+.qty:focus-within{border-color:var(--accent)}
+.qty input{flex:1;min-width:0;border:0;background:none;font:inherit;font-family:var(--display);font-weight:800;font-size:1.6rem;color:var(--ink);padding:10px 14px;outline:none}
+.qty span{display:grid;place-items:center;padding:0 16px;background:var(--soft);font-weight:700;color:var(--muted);min-width:70px}
+.err{color:var(--bad);font-size:.86rem;font-weight:600}
+.primary{border:0;background:var(--accent);color:var(--accent-ink);border-radius:16px;padding:16px;font-weight:700;font-size:1.05rem;width:100%}
+.primary:disabled{opacity:.6}
+.ghost{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:9px 14px;font-weight:600;font-size:.9rem}
+.danger{border:0;background:var(--bad);color:#fff;border-radius:12px;padding:9px 14px;font-weight:700;font-size:.9rem}
+
+/* Mis reportes */
+.day{padding:8px 14px 6px;font-size:.74rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:var(--soft);display:flex;justify-content:space-between}
+.rep{padding:12px 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.rep .acts .ghost,.rep .acts .danger{padding:5px 12px;font-size:.82rem;border-radius:10px}
+.rep .row{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center}
+.rep .nm{min-width:0}
+.rep .nm b{display:block;font-weight:600}
+.rep .nm span{display:block;font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}
+.rep .amt{font-weight:700;text-align:right;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.st{font-size:.66rem;font-weight:700;letter-spacing:.03em;padding:2px 7px;border-radius:6px}
+.st.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.st.pend{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.acts{display:flex;gap:8px;justify-content:flex-end}
+.edit{display:flex;flex-direction:column;gap:10px;background:var(--soft);border-radius:14px;padding:12px}
+.edit .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.edit label{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:flex;flex-direction:column;gap:4px}
+.edit .inp{min-height:44px;padding:9px 11px;font-size:.95rem;border-radius:11px}
+
+/* Tabs */
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom));z-index:5}
+.tabs button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;font-size:.76rem;font-weight:600;color:var(--muted);border-radius:12px}
+.tabs button svg{width:24px;height:24px}
+.tabs button.on{color:var(--accent)}
+.tabs button.on svg{background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:999px;padding:2px 14px;width:52px;box-sizing:content-box}
+.tabs .tag{position:absolute;margin-left:28px;margin-top:-2px;background:var(--warn);color:#fff;font-size:.62rem;border-radius:99px;padding:0 5px;font-weight:700}
+
+/* Hoja de ajustes */
+.veil{position:fixed;inset:0;background:rgba(10,16,12,.45);z-index:9;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:10px 16px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 4px}
+.sheet .sh{display:flex;justify-content:space-between;align-items:center}
+.set{padding:14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.set:first-child{border-top:0}
+.set .k{font-size:.74rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.set .v{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.set .v span{overflow-wrap:anywhere;min-width:0}
+.mono{font-family:ui-monospace,monospace;font-size:.78rem;color:var(--muted)}
+
+/* Bienvenida */
+.welcome{min-height:80vh;display:flex;flex-direction:column;justify-content:center;gap:18px}
+.welcome h1{font-size:2rem;font-weight:800;letter-spacing:-.02em}
+.welcome p{margin:0;color:var(--muted)}
+
+.toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:14px;font-weight:600;font-size:.9rem;z-index:20;max-width:calc(100% - 32px);box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.toast.warn{background:var(--warn);color:#fff}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style></head>
+<body>
+<div class="app" id="app"></div>
+<nav class="tabs" id="tabs" hidden></nav>
+<div id="over"></div>
+<div id="toast" class="toast" hidden></div>
+<script>
+'use strict';
+// Enlace de la Hoja de Google (aplicación web de Apps Script). Se puede cambiar en Ajustes.
+const DEFAULT_URL = '';
+const VERSION = '1.0';
+
+const COLORS = ['#2E7D4F','#2F6FB5','#B5562F','#8A5CC2','#C29A1F','#2B9A9A','#C2416E','#5E7A2E','#6B6F80'];
+const DEFAULT_CONFIG = {
+  labores: [
+    {nombre:'Poda',unidad:'plantas'},{nombre:'Riego',unidad:'ha'},{nombre:'Deshierbo',unidad:'ha'},
+    {nombre:'Fumigación',unidad:'ha'},{nombre:'Fertilización',unidad:'ha'},{nombre:'Cosecha',unidad:'jabas'}
+  ],
+  lotes: ['Lote 1','Lote 2','Lote 3','Lote 4']
+};
+
+const LS = {
+  get(k,d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function deviceId(){
+  try{ if (window.AndroidApp && AndroidApp.deviceId){ const d = AndroidApp.deviceId(); if (d) return 'and-' + d; } }catch(e){}
+  let d = LS.get('ac_dev',''); if (!d){ d = 'web-' + newId(); LS.set('ac_dev', d); } return d;
+}
+const DEV = deviceId();
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function isoDate(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function hoy(){ return isoDate(new Date()); }
+function parseIso(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+const DIAS = ['dom','lun','mar','mié','jue','vie','sáb'];
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
+function fechaLarga(s){
+  if (s === hoy()) return 'Hoy';
+  const ay = new Date(); ay.setDate(ay.getDate()-1);
+  if (s === isoDate(ay)) return 'Ayer';
+  const d = parseIso(s); return DIAS[d.getDay()] + ' ' + d.getDate() + ' ' + MESES[d.getMonth()];
+}
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function num(n){ return Number(n).toLocaleString('es-PE', {maximumFractionDigits:2}); }
+function initials(s){ const p = String(s).trim().split(/\s+/); return ((p[0]||'')[0]||'' ) .toUpperCase() + ((p[1]||'')[0]||(p[0]||'')[1]||'').toLowerCase(); }
+
+const S = {
+  nombre: LS.get('ac_nombre',''),
+  url: LS.get('ac_url','') || DEFAULT_URL,
+  config: LS.get('ac_config', DEFAULT_CONFIG),
+  reps: LS.get('ac_reps', []),
+  lastSync: LS.get('ac_last', 0),
+  tab: 'inicio',
+  form: { fecha: hoy(), labor:'', lote:'', cantidad:'', nota:'' },
+  formErr: '',
+  editId: null, editErr: '', delId: null,
+  sheet: false, setEdit: null, setErr: '',
+  syncing: false, online: null, sending: false
+};
+function save(){ LS.set('ac_reps', S.reps); }
+
+function colorOf(labor){
+  const i = S.config.labores.findIndex(l => l.nombre === labor);
+  if (i >= 0) return COLORS[i % COLORS.length];
+  let h = 0; for (const c of String(labor)) h = (h*31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length];
+}
+function unidadOf(labor){ const l = S.config.labores.find(x => x.nombre === labor); return l ? l.unidad : ''; }
+
+/* ---------- Conexión con la Hoja de Google ---------- */
+const cbs = {}; let cbn = 0;
+window.__http = function(id, ok, text){ const c = cbs[id]; delete cbs[id]; if (c) c(ok, text); };
+function api(payload){
+  if (!S.url) return Promise.reject(new Error('Falta el enlace de la hoja'));
+  const u = S.url + (S.url.includes('?') ? '&' : '?') + 'q=' + encodeURIComponent(JSON.stringify(payload));
+  const parse = t => { let j; try{ j = JSON.parse(t); }catch(e){ throw new Error('La hoja no respondió bien. Revisa el enlace.'); } if (!j.ok) throw new Error(j.error || 'Error en la hoja'); return j; };
+  if (window.AndroidApp && AndroidApp.http){
+    return new Promise((res, rej) => {
+      const id = 'c' + (++cbn);
+      const timer = setTimeout(() => { if (cbs[id]){ delete cbs[id]; rej(new Error('Sin respuesta')); } }, 45000);
+      cbs[id] = (ok, t) => { clearTimeout(timer); if (!ok) return rej(new Error('Sin conexión')); try{ res(parse(t)); }catch(e){ rej(e); } };
+      AndroidApp.http(id, u);
+    });
+  }
+  return fetch(u).then(r => r.text()).then(parse);
+}
+function plain(r){ return {id:r.id, fecha:r.fecha, labor:r.labor, lote:r.lote, cantidad:r.cantidad, unidad:r.unidad, nota:r.nota||''}; }
+
+async function sync(quiet){
+  if (S.syncing || !S.url) return;
+  S.syncing = true; render();
+  let pendError = null;
+  try{
+    for (const r of S.reps.filter(x => x.estado !== 'ok')){
+      try{
+        if (r.estado === 'del'){
+          await api({accion:'eliminar', id:r.id, dispositivo:DEV});
+          S.reps = S.reps.filter(x => x.id !== r.id);
+        } else {
+          await api({accion:'guardar', dispositivo:DEV, auxiliar:S.nombre, reporte:plain(r)});
+          r.estado = 'ok'; r.enviado = true;
+        }
+        save();
+      }catch(e){
+        if (/conexi|respuesta/i.test(e.message)) throw e;   // sin señal: cortar y reintentar luego
+        pendError = e.message;                              // error de la hoja con ese reporte
+      }
+    }
+    const cfg = await api({accion:'config'});
+    if (cfg.labores && cfg.labores.length){ S.config = {labores:cfg.labores, lotes:cfg.lotes||[]}; LS.set('ac_config', S.config); }
+    const m = await api({accion:'mis', dispositivo:DEV});
+    const pend = S.reps.filter(r => r.estado !== 'ok');
+    S.reps = pend.concat((m.reportes||[]).filter(s => !pend.some(p => p.id === s.id)).map(s => Object.assign(s, {estado:'ok', enviado:true})));
+    save();
+    S.lastSync = Date.now(); LS.set('ac_last', S.lastSync);
+    S.online = true;
+    if (pendError) toast('Un reporte no se pudo guardar: ' + pendError, 'warn');
+    else if (!quiet) toast('Todo al día ✓');
+  }catch(e){
+    S.online = false;
+    if (!quiet) toast(e.message === 'Sin conexión' ? 'Sin conexión. Se enviará cuando haya señal.' : e.message, 'warn');
+  }
+  S.syncing = false; render();
+}
+
+/* ---------- Vistas ---------- */
+const ICONS = {
+  inicio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  reportar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+  mis:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>'
+};
+
+function header(){
+  return `<div class="top">
+    <div class="brand">Avance de Campo<small>${esc(cap(DIAS[new Date().getDay()]) + ' ' + new Date().getDate() + ' ' + MESES[new Date().getMonth()])}</small></div>
+    <button class="me" data-act="ajustes" aria-label="Ajustes"><span class="av">${esc(initials(S.nombre))}</span><span>${esc(S.nombre)}</span></button>
+  </div>`;
+}
+function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function banners(){
+  const pend = S.reps.filter(r => r.estado !== 'ok').length;
+  let h = '';
+  if (!S.url) h += `<div class="banner"><div><b>Falta conectar con la hoja</b>Tus reportes se guardan en el celular hasta conectarla.</div><button data-act="ajustes">Conectar</button></div>`;
+  else if (pend) h += `<div class="banner"><div><b>${pend} ${pend === 1 ? 'reporte sin enviar' : 'reportes sin enviar'}</b>Se enviarán cuando haya señal.</div><button data-act="sync">${S.syncing ? '<span class="spin"></span>' : 'Enviar'}</button></div>`;
+  return h;
+}
+
+function weekStart(){ const d = new Date(); const wd = (d.getDay() + 6) % 7; d.setDate(d.getDate() - wd); return isoDate(d); }
+
+function viewInicio(){
+  const live = S.reps.filter(r => r.estado !== 'del');
+  const ws = weekStart(), t = hoy();
+  const semana = live.filter(r => r.fecha >= ws && r.fecha <= t);
+  const deHoy = live.filter(r => r.fecha === t);
+  const lotes = new Set(semana.map(r => r.lote)).size;
+  // últimos 7 días
+  const dias = [];
+  for (let i = 6; i >= 0; i--){ const d = new Date(); d.setDate(d.getDate() - i); const k = isoDate(d); dias.push({k, w:DIAS[d.getDay()], n: live.filter(r => r.fecha === k).length}); }
+  const max = Math.max(1, ...dias.map(d => d.n));
+  // por labor (semana)
+  const por = {};
+  for (const r of semana){
+    const k = r.labor + '|' + r.unidad;
+    (por[k] = por[k] || {labor:r.labor, unidad:r.unidad, total:0, n:0, lotes:new Set()});
+    por[k].total += Number(r.cantidad) || 0; por[k].n++; por[k].lotes.add(r.lote);
+  }
+  const lista = Object.values(por).sort((a,b) => b.n - a.n);
+  return `${banners()}
+  <section class="hero">
+    <div><div class="lbl">Tus reportes esta semana</div><div class="big">${semana.length} <small>${semana.length === 1 ? 'reporte' : 'reportes'}</small></div></div>
+    <div class="split"><div><span>Hoy</span><b>${deHoy.length}</b></div><div><span>Lotes trabajados</span><b>${lotes}</b></div></div>
+    <div class="days" role="img" aria-label="Reportes por día, últimos 7 días">
+      ${dias.map(d => `<div class="d${d.k === t ? ' today' : ''}"><span class="n">${d.n || ''}</span><div class="col${d.n ? ' on' : ''}" style="height:${Math.round(d.n / max * 56) + 4}px"></div><span class="w">${d.w}</span></div>`).join('')}
+    </div>
+  </section>
+  <section class="sec">
+    <div class="sec-h"><h2>Avance por labor · semana</h2></div>
+    <div class="panel">${lista.length ? lista.map(l => `
+      <div class="lab"><div class="ico" style="background:${colorOf(l.labor)}">${esc(initials(l.labor))}</div>
+        <div class="nm">${esc(l.labor)}</div><div class="amt">${num(l.total)} ${esc(l.unidad)}</div>
+        <div class="sub">${l.n} ${l.n === 1 ? 'reporte' : 'reportes'} · ${[...l.lotes].map(esc).join(', ')}</div></div>`).join('')
+      : `<div class="empty"><b>Aún no reportas esta semana</b>Toca “Reportar” para registrar tu primer avance.</div>`}
+    </div>
+  </section>
+  <p class="mono" style="text-align:center;margin:0">${S.url ? (S.syncing ? 'Actualizando…' : S.lastSync ? 'Actualizado ' + hora(S.lastSync) : '') : ''}</p>`;
+}
+function hora(ts){ const d = new Date(ts); return (isoDate(d) === hoy() ? 'hoy' : fechaLarga(isoDate(d))) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+
+function viewReportar(){
+  const f = S.form, u = unidadOf(f.labor);
+  return `${banners()}
+  <div class="field"><label for="f-fecha">Fecha</label><input class="inp" type="date" id="f-fecha" value="${esc(f.fecha)}" max="${hoy()}"></div>
+  <div class="field"><div class="lbl">Labor</div><div class="grid2">
+    ${S.config.labores.map(l => `<button class="opt${f.labor === l.nombre ? ' sel' : ''}" data-act="pick-labor" data-v="${esc(l.nombre)}">
+      <span class="ico" style="background:${colorOf(l.nombre)}">${esc(initials(l.nombre))}</span><span><b>${esc(l.nombre)}</b><small>en ${esc(l.unidad)}</small></span></button>`).join('')}
+  </div></div>
+  <div class="field"><div class="lbl">Lote</div><div class="chips">
+    ${S.config.lotes.map(l => `<button class="chipbtn${f.lote === l ? ' sel' : ''}" data-act="pick-lote" data-v="${esc(l)}">${esc(l)}</button>`).join('')}
+  </div></div>
+  <div class="field"><label for="f-cant">${u === '%' ? 'Porcentaje de avance' : 'Cantidad avanzada'}</label>
+    <div class="qty"><input id="f-cant" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(f.cantidad)}"><span>${esc(u || '—')}</span></div></div>
+  <div class="field"><label for="f-nota">Nota (opcional)</label><input class="inp" id="f-nota" maxlength="200" placeholder="Ej.: faltó agua en la tarde" value="${esc(f.nota)}"></div>
+  ${S.formErr ? `<div class="err">${esc(S.formErr)}</div>` : ''}
+  <button class="primary" data-act="enviar" ${S.sending ? 'disabled' : ''}>${S.sending ? '<span class="spin"></span> Enviando…' : 'Enviar reporte'}</button>`;
+}
+
+function opts(list, sel){ const has = list.includes(sel); return (has ? '' : `<option selected>${esc(sel)}</option>`) + list.map(v => `<option${v === sel ? ' selected' : ''}>${esc(v)}</option>`).join(''); }
+
+function viewMis(){
+  const live = S.reps.filter(r => r.estado !== 'del').sort((a,b) => (b.fecha.localeCompare(a.fecha)) || ((b.creado||0) - (a.creado||0)));
+  const groups = [];
+  for (const r of live){ const g = groups[groups.length-1]; if (g && g.f === r.fecha) g.items.push(r); else groups.push({f:r.fecha, items:[r]}); }
+  return `${banners()}
+  <div class="sec-h"><h2>Mis reportes</h2>${S.url ? `<button class="link" data-act="sync">${S.syncing ? '<span class="spin"></span>' : 'Actualizar'}</button>` : ''}</div>
+  <p style="margin:-6px 0 0;color:var(--muted);font-size:.86rem">Revisa que esté bien. Si te equivocaste, toca <b>Editar</b>.</p>
+  <div class="panel">${groups.length ? groups.map(g => `
+    <div class="day"><span>${esc(fechaLarga(g.f))}</span><span>${g.items.length}</span></div>
+    ${g.items.map(repItem).join('')}`).join('')
+    : `<div class="empty"><b>Todavía no tienes reportes</b>Los que envíes aparecerán aquí.</div>`}
+  </div>`;
+}
+
+function repItem(r){
+  if (S.editId === r.id){
+    const labs = S.config.labores.map(l => l.nombre);
+    return `<div class="rep"><div class="edit">
+      <div class="two"><label>Fecha<input class="inp" type="date" id="e-fecha" value="${esc(r.fecha)}" max="${hoy()}"></label>
+      <label>Cantidad<input class="inp" type="number" inputmode="decimal" step="any" id="e-cant" value="${esc(r.cantidad)}"></label></div>
+      <div class="two"><label>Labor<select class="inp" id="e-labor">${opts(labs, r.labor)}</select></label>
+      <label>Lote<select class="inp" id="e-lote">${opts(S.config.lotes, r.lote)}</select></label></div>
+      <label>Nota<input class="inp" id="e-nota" maxlength="200" value="${esc(r.nota)}"></label>
+      ${S.editErr ? `<div class="err">${esc(S.editErr)}</div>` : ''}
+      <div class="acts"><button class="ghost" data-act="cancel-edit">Cancelar</button><button class="primary" style="width:auto;padding:9px 18px;font-size:.95rem;border-radius:12px" data-act="save-edit" data-id="${esc(r.id)}">Guardar</button></div>
+    </div></div>`;
+  }
+  const del = S.delId === r.id;
+  return `<div class="rep"><div class="row">
+    <div class="ico" style="background:${colorOf(r.labor)}">${esc(initials(r.labor))}</div>
+    <div class="nm"><b>${esc(r.labor)} · ${esc(r.lote)}</b>${r.nota ? `<span>${esc(r.nota)}</span>` : ''}</div>
+    <div class="amt">${num(r.cantidad)} ${esc(r.unidad)}${r.estado === 'ok' ? '<span class="st ok">Enviado</span>' : '<span class="st pend">Sin enviar</span>'}</div>
+  </div>
+  <div class="acts">${del
+    ? `<button class="ghost" data-act="cancel-del">No</button><button class="danger" data-act="del" data-id="${esc(r.id)}">¿Eliminar? Sí</button>`
+    : `<button class="ghost" data-act="ask-del" data-id="${esc(r.id)}">Eliminar</button><button class="ghost" data-act="edit" data-id="${esc(r.id)}">Editar</button>`}
+  </div></div>`;
+}
+
+function viewWelcome(){
+  return `<div class="welcome">
+    <div class="ico" style="width:56px;height:56px;border-radius:16px;background:var(--accent);font-size:1.3rem">AC</div>
+    <h1>Avance de Campo</h1>
+    <p>Registra el avance de tus labores. Tus reportes llegan a la hoja del encargado.</p>
+    <div class="field"><label for="w-nombre">¿Cuál es tu nombre?</label><input class="inp" id="w-nombre" maxlength="40" placeholder="Nombre y apellido" autocomplete="name"></div>
+    ${S.setErr ? `<div class="err">${esc(S.setErr)}</div>` : ''}
+    <button class="primary" data-act="welcome">Empezar</button>
+  </div>`;
+}
+
+function viewSheet(){
+  const e = S.setEdit;
+  const conn = !S.url ? 'Sin conectar' : S.online === false ? 'Sin conexión ahora' : S.online ? 'Conectada' : 'Sin probar';
+  return `<div class="veil" data-act="close-veil"><div class="sheet" role="dialog" aria-label="Ajustes">
+    <div class="grab"></div>
+    <div class="sh"><h2 style="font-size:1.2rem">Ajustes</h2><button class="link" data-act="close">Cerrar</button></div>
+    <div class="panel">
+      <div class="set"><div class="k">Tu nombre</div>
+        ${e === 'nombre'
+          ? `<input class="inp" id="s-nombre" maxlength="40" value="${esc(S.nombre)}"><div class="acts"><button class="ghost" data-act="set-cancel">Cancelar</button><button class="primary" style="width:auto;padding:9px 18px;font-size:.95rem;border-radius:12px" data-act="set-save-nombre">Guardar</button></div>`
+          : `<div class="v"><span>${esc(S.nombre)}</span><button class="ghost" data-act="set-edit" data-v="nombre">Editar</button></div>`}
+      </div>
+      <div class="set"><div class="k">Hoja de Google</div>
+        <div class="v"><span>${esc(conn)}</span>${S.url ? `<button class="ghost" data-act="probar">${S.syncing ? '<span class="spin"></span>' : 'Probar'}</button>` : ''}</div>
+        ${e === 'url'
+          ? `<input class="inp" id="s-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.url)}"><div class="acts"><button class="ghost" data-act="set-cancel">Cancelar</button><button class="primary" style="width:auto;padding:9px 18px;font-size:.95rem;border-radius:12px" data-act="set-save-url">Guardar</button></div>`
+          : `<div class="v"><span class="mono">${S.url ? esc(S.url.replace(/^https:\/\/script\.google\.com\/macros\/s\//,'…/').slice(0,34)) + '…' : 'Pide el enlace al encargado'}</span><button class="ghost" data-act="set-edit" data-v="url">${S.url ? 'Cambiar' : 'Agregar'}</button></div>`}
+      </div>
+      ${S.setErr ? `<div class="set"><div class="err">${esc(S.setErr)}</div></div>` : ''}
+      <div class="set"><div class="k">Este celular</div><span class="mono">${esc(DEV)} · versión ${VERSION}</span></div>
+    </div>
+  </div></div>`;
+}
+
+function render(){
+  const app = document.getElementById('app'), tabs = document.getElementById('tabs');
+  if (!S.nombre){ app.innerHTML = viewWelcome(); tabs.hidden = true; document.getElementById('over').innerHTML = ''; return; }
+  const body = S.tab === 'inicio' ? viewInicio() : S.tab === 'reportar' ? viewReportar() : viewMis();
+  app.innerHTML = header() + body;
+  const pend = S.reps.filter(r => r.estado !== 'ok').length;
+  tabs.hidden = false;
+  tabs.innerHTML = [['inicio','Inicio'],['reportar','Reportar'],['mis','Mis reportes']].map(([k,l]) =>
+    `<button class="${S.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}">${ICONS[k]}<span>${l}</span>${k === 'mis' && pend ? `<i class="tag">${pend}</i>` : ''}</button>`).join('');
+  document.getElementById('over').innerHTML = S.sheet ? viewSheet() : '';
+}
+
+document.addEventListener('input', ev => {
+  const id = ev.target.id;
+  if (id === 'f-fecha') S.form.fecha = ev.target.value;
+  else if (id === 'f-cant') S.form.cantidad = ev.target.value;
+  else if (id === 'f-nota') S.form.nota = ev.target.value;
+  if (S.formErr && id && id.startsWith('f-')){ S.formErr = ''; const e = document.querySelector('.app > .err'); if (e) e.remove(); }
+});
+document.addEventListener('change', ev => { if (ev.target.id === 'f-fecha') S.form.fecha = ev.target.value || hoy(); });
+function readForm(){
+  const g = id => document.getElementById(id);
+  if (g('f-fecha')) S.form.fecha = g('f-fecha').value || S.form.fecha;
+  if (g('f-cant')) S.form.cantidad = g('f-cant').value;
+  if (g('f-nota')) S.form.nota = g('f-nota').value;
+}
+
+let toastT;
+function toast(msg, kind){
+  const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast' + (kind ? ' ' + kind : ''); t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3200);
+}
+
+function validar(r){
+  if (!r.fecha) return 'Elige la fecha.';
+  if (r.fecha > hoy()) return 'La fecha no puede ser futura.';
+  if (!r.labor) return 'Elige la labor.';
+  if (!r.lote) return 'Elige el lote.';
+  const c = Number(String(r.cantidad).replace(',', '.'));
+  if (!(c > 0)) return 'Escribe una cantidad mayor que cero.';
+  if (r.unidad === '%' && c > 100) return 'El porcentaje no puede pasar de 100.';
+  return '';
+}
+
+/* ---------- Acciones ---------- */
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act, v = b.dataset.v, id = b.dataset.id;
+  if (act === 'close-veil' && ev.target !== b) return;
+  switch (act){
+    case 'welcome': {
+      const n = document.getElementById('w-nombre').value.trim();
+      if (n.length < 2){ S.setErr = 'Escribe tu nombre.'; render(); return; }
+      S.setErr = ''; S.nombre = n; LS.set('ac_nombre', n); render(); sync(true); return;
+    }
+    case 'tab': readForm(); S.tab = v; S.editId = null; S.delId = null; render(); window.scrollTo(0,0); if (v === 'mis') sync(true); return;
+    case 'pick-labor': readForm(); S.form.labor = v; S.formErr = ''; render(); return;
+    case 'pick-lote': readForm(); S.form.lote = v; S.formErr = ''; render(); return;
+    case 'enviar': {
+      readForm();
+      const r = {id:newId(), fecha:S.form.fecha, labor:S.form.labor, lote:S.form.lote,
+                 cantidad:S.form.cantidad, unidad:unidadOf(S.form.labor), nota:S.form.nota.trim(),
+                 creado:Date.now(), estado:'pend'};
+      const err = validar(r); S.formErr = err; if (err){ render(); return; }
+      r.cantidad = Number(String(r.cantidad).replace(',', '.'));
+      S.reps.unshift(r); save();
+      S.form = {fecha:S.form.fecha, labor:'', lote:'', cantidad:'', nota:''};
+      if (!S.url){ render(); toast('Guardado en el celular. Falta conectar la hoja.', 'warn'); return; }
+      S.sending = true; render();
+      try{
+        await api({accion:'guardar', dispositivo:DEV, auxiliar:S.nombre, reporte:plain(r)});
+        r.estado = 'ok'; r.enviado = true; save(); S.online = true;
+        toast('Reporte enviado ✓');
+      }catch(e){ S.online = false; toast(e.message === 'Sin conexión' ? 'Sin señal: se enviará luego.' : e.message, 'warn'); }
+      S.sending = false; render(); return;
+    }
+    case 'edit': S.editId = id; S.editErr = ''; S.delId = null; render(); return;
+    case 'cancel-edit': S.editId = null; S.editErr = ''; render(); return;
+    case 'save-edit': {
+      const r = S.reps.find(x => x.id === id); if (!r) return;
+      const g = k => document.getElementById(k).value;
+      const n = Object.assign({}, r, {fecha:g('e-fecha'), cantidad:g('e-cant'), labor:g('e-labor'), lote:g('e-lote'), nota:g('e-nota').trim()});
+      n.unidad = unidadOf(n.labor) || r.unidad;
+      const err = validar(n); if (err){ S.editErr = err; render(); return; }
+      n.cantidad = Number(String(n.cantidad).replace(',', '.'));
+      Object.assign(r, n, {estado:'pend', editado:Date.now()}); save();
+      S.editId = null; S.editErr = ''; render();
+      if (S.url){
+        try{ await api({accion:'guardar', dispositivo:DEV, auxiliar:S.nombre, reporte:plain(r)}); r.estado = 'ok'; r.enviado = true; save(); toast('Corrección guardada ✓'); }
+        catch(e){ toast(e.message === 'Sin conexión' ? 'Sin señal: la corrección se enviará luego.' : e.message, 'warn'); }
+        render();
+      }
+      return;
+    }
+    case 'ask-del': S.delId = id; S.editId = null; render(); return;
+    case 'cancel-del': S.delId = null; render(); return;
+    case 'del': {
+      const r = S.reps.find(x => x.id === id); S.delId = null; if (!r) return;
+      if (!r.enviado){ S.reps = S.reps.filter(x => x.id !== id); save(); render(); toast('Reporte eliminado'); return; }
+      r.estado = 'del'; save(); render();
+      if (S.url){
+        try{ await api({accion:'eliminar', id, dispositivo:DEV}); S.reps = S.reps.filter(x => x.id !== id); save(); toast('Reporte eliminado'); }
+        catch(e){ toast('Se eliminará cuando haya señal.', 'warn'); }
+        render();
+      }
+      return;
+    }
+    case 'sync': sync(false); return;
+    case 'ajustes': readForm(); S.sheet = true; S.setEdit = null; S.setErr = ''; render(); return;
+    case 'close': case 'close-veil': S.sheet = false; S.setEdit = null; S.setErr = ''; render(); return;
+    case 'set-edit': S.setEdit = v; S.setErr = ''; render(); return;
+    case 'set-cancel': S.setEdit = null; S.setErr = ''; render(); return;
+    case 'set-save-nombre': {
+      const n = document.getElementById('s-nombre').value.trim();
+      if (n.length < 2){ S.setErr = 'Escribe tu nombre.'; render(); return; }
+      S.nombre = n; LS.set('ac_nombre', n); S.setEdit = null; S.setErr = ''; render(); return;
+    }
+    case 'set-save-url': {
+      const u = document.getElementById('s-url').value.trim();
+      if (u && !/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(u)){ S.setErr = 'El enlace debe empezar con https://script.google.com/'; render(); return; }
+      S.url = u; LS.set('ac_url', u); S.setEdit = null; S.setErr = ''; S.online = null; render();
+      if (u) sync(false);
+      return;
+    }
+    case 'probar': sync(false); return;
+  }
+});
+
+window.onBack = function(){
+  if (S.sheet){ S.sheet = false; S.setEdit = null; render(); return true; }
+  if (S.editId || S.delId){ S.editId = null; S.delId = null; render(); return true; }
+  if (S.nombre && S.tab !== 'inicio'){ readForm(); S.tab = 'inicio'; render(); return true; }
+  return false;
+};
+let lastResume = 0;
+window.onAppResume = function(){ if (S.nombre && Date.now() - lastResume > 60000){ lastResume = Date.now(); sync(true); } };
+window.addEventListener('online', () => sync(true));
+
+render();
+if (S.nombre) sync(true);
+</script>
+</body></html>

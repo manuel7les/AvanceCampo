@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'pe.avancecampo.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'pe.avancecampo.app'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        fija {
+            storeFile file('avancecampo.jks')
+            storePassword 'avancecampo123'
+            keyAlias 'avancecampo'
+            keyPassword 'avancecampo123'
+        }
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.fija }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.fija
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
