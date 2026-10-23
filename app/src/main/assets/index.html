@@ -126,6 +126,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .vsum{display:block;font-size:.8rem;color:var(--muted);margin-top:2px}
 .vsum i{font-style:normal;font-weight:700}
 .vsum .t{color:var(--ok)} .vsum .m{color:var(--warn)}
+.sel-dd{appearance:none;-webkit-appearance:none;font-weight:600;padding-right:44px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%235D6A5F' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center}
+.sel-dd.ph{color:var(--muted);font-weight:500}
+.sel-dd option{color:var(--ink);font-weight:500}
 .edit label{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:flex;flex-direction:column;gap:4px}
 .edit .inp{min-height:44px;padding:9px 11px;font-size:.95rem;border-radius:11px}
 
@@ -168,7 +171,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 'use strict';
 // Enlace de la Hoja de Google (aplicación web de Apps Script). Se puede cambiar en Ajustes.
 const DEFAULT_URL = '';
-const VERSION = '1.2';
+const VERSION = '1.3';
 
 const COLORS = ['#2E7D4F','#2F6FB5','#B5562F','#8A5CC2','#C29A1F','#2B9A9A','#C2416E','#5E7A2E','#6B6F80'];
 const DEFAULT_CONFIG = {
@@ -403,13 +406,16 @@ function viewReportar(){
   const f = S.form, u = unidadOf(f.labor);
   return `${banners()}
   <div class="field"><label for="f-fecha">Fecha</label><input class="inp" type="date" id="f-fecha" value="${esc(f.fecha)}" max="${hoy()}"></div>
-  <div class="field"><div class="lbl">Labor</div><div class="grid2">
-    ${S.config.labores.map(l => `<button class="opt${f.labor === l.nombre ? ' sel' : ''}" data-act="pick-labor" data-v="${esc(l.nombre)}">
-      <span class="ico" style="background:${colorOf(l.nombre)}">${esc(initials(l.nombre))}</span><span><b>${esc(l.nombre)}</b><small>en ${esc(l.unidad)}</small></span></button>`).join('')}
-  </div></div>
-  <div class="field"><div class="lbl">Lote</div><div class="chips">
-    ${loteNames().map(l => `<button class="chipbtn${f.lote === l ? ' sel' : ''}" data-act="pick-lote" data-v="${esc(l)}">${esc(l)}</button>`).join('')}
-  </div></div>
+  <div class="field"><label for="f-labor">Labor</label>
+    <select class="inp sel-dd${f.labor ? '' : ' ph'}" id="f-labor">
+      <option value=""${f.labor ? '' : ' selected'} disabled>Elige la labor</option>
+      ${S.config.labores.map(l => `<option value="${esc(l.nombre)}"${f.labor === l.nombre ? ' selected' : ''}>${esc(l.nombre)} (${esc(l.unidad)})</option>`).join('')}
+    </select></div>
+  <div class="field"><label for="f-lote">Lote</label>
+    <select class="inp sel-dd${f.lote ? '' : ' ph'}" id="f-lote">
+      <option value=""${f.lote ? '' : ' selected'} disabled>Elige el lote</option>
+      ${loteNames().map(l => `<option value="${esc(l)}"${f.lote === l ? ' selected' : ''}>${esc(l)}</option>`).join('')}
+    </select></div>
   ${valvWidget('f', f.labor, f.lote, f.valv)}
   <div class="field"><label for="f-cant">${u === '%' ? 'Porcentaje de avance' : u === 'plantas' ? 'Plantas avanzadas' : 'Cantidad avanzada'}</label>
     <div class="qty"><input id="f-cant" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(f.cantidad)}"><span>${esc(u || '—')}</span></div></div>
@@ -520,6 +526,8 @@ document.addEventListener('input', ev => {
 document.addEventListener('change', ev => {
   const id = ev.target.id;
   if (id === 'f-fecha') S.form.fecha = ev.target.value || hoy();
+  else if (id === 'f-labor'){ readForm(); S.form.labor = ev.target.value; S.formErr = ''; render(); }
+  else if (id === 'f-lote'){ readForm(); if (S.form.lote !== ev.target.value) S.form.valv = {}; S.form.lote = ev.target.value; S.formErr = ''; render(); }
   else if (S.edit && id === 'e-labor'){ S.edit.labor = ev.target.value; S.editErr = ''; render(); }
   else if (S.edit && id === 'e-lote'){ S.edit.lote = ev.target.value; S.edit.valv = {}; S.editErr = ''; render(); }
 });
