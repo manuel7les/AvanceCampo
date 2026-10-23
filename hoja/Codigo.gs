@@ -10,9 +10,12 @@
  */
 
 const COLS = ['ID', 'Fecha', 'Auxiliar', 'Labor', 'Lote', 'Cantidad', 'Unidad',
+              'Hora inicio', 'Hora fin', 'Jornales inicio', 'Ingresos/retiros de jornales',
+              'Jornales final', 'Horas-hombre',
               'Observaciones (válvulas)', 'Nota', 'Registrado', 'Última edición',
-              'Dispositivo', 'Datos válvulas'];
-const OCULTAS = ['ID', 'Dispositivo', 'Datos válvulas'];
+              'Dispositivo', 'Datos válvulas', 'Datos jornales'];
+const OCULTAS = ['ID', 'Dispositivo', 'Datos válvulas', 'Datos jornales'];
+const COLS_TEXTO = ['Hora inicio', 'Hora fin', 'Datos jornales', 'Datos válvulas'];
 
 const LOTES = ['L1A', 'L2A', 'L3A', 'L4A', 'L5A', 'L6A', 'L7A', 'L8A', 'L9A', 'L10A', 'L11A',
                'L12A', 'L12B', 'L13A', 'L13B', 'L14A', 'L15A', 'L16A'];
@@ -75,6 +78,8 @@ function preparar() {
     rep.getRange(2, c['Registrado'] + 1, rep.getMaxRows() - 1, 1).setNumberFormat('dd/mm/yyyy hh:mm');
     rep.getRange(2, c['Última edición'] + 1, rep.getMaxRows() - 1, 1).setNumberFormat('dd/mm/yyyy hh:mm');
     rep.setColumnWidth(c['Observaciones (válvulas)'] + 1, 320);
+    rep.setColumnWidth(c['Ingresos/retiros de jornales'] + 1, 260);
+    COLS_TEXTO.forEach(n => rep.getRange(2, c[n] + 1, rep.getMaxRows() - 1, 1).setNumberFormat('@'));
     OCULTAS.forEach(n => rep.hideColumns(c[n] + 1));
   }
 
@@ -185,6 +190,32 @@ function observacion(datos) {
   return partes.join(' · ');
 }
 
+/* ---------- Horario y jornales ---------- */
+function horaTexto(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'HH:mm');
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(v || ''));
+  return m ? ('0' + m[1]).slice(-2) + ':' + m[2] : '';
+}
+function aMin(h) { const m = /^(\d{1,2}):(\d{2})$/.exec(h || ''); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
+function leerMovs(str) {
+  return String(str || '').split(';').map(x => /^([IR])(\d+)@(\d{1,2}:\d{2})$/.exec(x.trim())).filter(Boolean)
+    .map(m => ({ t: m[1], n: Number(m[2]), h: horaTexto(m[3]) }))
+    .sort((a, b) => aMin(a.h) - aMin(b.h));
+}
+/** Calcula jornales al final, horas-hombre y el texto de movimientos. */
+function calcularJornales(hi, hf, jor, movs) {
+  const a = aMin(hi), z = aMin(hf);
+  let n = Number(jor) || 0, t = a, hh = 0;
+  movs.forEach(m => {
+    const mm = aMin(m.h);
+    if (t != null && mm >= t) { hh += n * (mm - t); t = mm; }
+    n = Math.max(0, n + (m.t === 'I' ? m.n : -m.n));
+  });
+  const horas = (a != null && z != null && z > a && t != null) ? Math.round((hh + n * (z - t)) / 60 * 100) / 100 : '';
+  const texto = movs.map(m => (m.t === 'I' ? 'Ingresan ' : 'Se retiran ') + m.n + ' a las ' + m.h).join(' · ');
+  return { final: n, horas: horas, texto: texto };
+}
+
 function misReportes(dispositivo) {
   if (!dispositivo) return [];
   const sh = SpreadsheetApp.getActive().getSheetByName('Reportes');
@@ -200,6 +231,9 @@ function misReportes(dispositivo) {
       labor: String(r[c['Labor']]), lote: String(r[c['Lote']]), cantidad: Number(r[c['Cantidad']]) || 0,
       unidad: String(r[c['Unidad']]), nota: String(r[c['Nota']] || ''),
       valvulas: String(r[c['Datos válvulas']] || ''),
+      hi: horaTexto(r[c['Hora inicio']]), hf: horaTexto(r[c['Hora fin']]),
+      jor: r[c['Jornales inicio']] === '' ? '' : Number(r[c['Jornales inicio']]),
+      movs: String(r[c['Datos jornales']] || ''),
       creado: r[c['Registrado']] instanceof Date ? r[c['Registrado']].getTime() : 0,
       editado: r[c['Última edición']] instanceof Date ? r[c['Última edición']].getTime() : 0
     }));
@@ -246,6 +280,17 @@ function guardar(p) {
     fil[c['Nota']] = texto(r.nota);
     fil[c['Dispositivo']] = String(p.dispositivo);
     fil[c['Datos válvulas']] = datos;
+    const hi = horaTexto(r.hi), hf = horaTexto(r.hf);
+    const movs = leerMovs(r.movs);
+    const tieneJor = String(r.jor == null ? '' : r.jor).trim() !== '';
+    const jc = calcularJornales(hi, hf, r.jor, movs);
+    fil[c['Hora inicio']] = hi;
+    fil[c['Hora fin']] = hf;
+    fil[c['Jornales inicio']] = tieneJor ? Number(r.jor) : '';
+    fil[c['Ingresos/retiros de jornales']] = jc.texto;
+    fil[c['Jornales final']] = tieneJor ? jc.final : '';
+    fil[c['Horas-hombre']] = tieneJor ? jc.horas : '';
+    fil[c['Datos jornales']] = movs.map(m => m.t + m.n + '@' + m.h).join(';');
     if (fila > 0) sh.getRange(fila, 1, 1, ancho).setValues([fil]);
     else sh.appendRow(fil);
     return { ok: true };

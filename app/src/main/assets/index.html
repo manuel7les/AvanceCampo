@@ -129,6 +129,26 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .sel-dd{appearance:none;-webkit-appearance:none;font-weight:600;padding-right:44px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%235D6A5F' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center}
 .sel-dd.ph{color:var(--muted);font-weight:500}
 .sel-dd option{color:var(--ink);font-weight:500}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pair label,.mrow label{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pair .inp{font-weight:600}
+.mv{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--line)}
+.mv:first-child{border-top:0}
+.mv .bd{font-weight:700;font-size:.82rem;padding:4px 9px;border-radius:9px;white-space:nowrap}
+.mv .bd.I{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.mv .bd.R{background:color-mix(in srgb,var(--bad) 13%,transparent);color:var(--bad)}
+.mv span{font-size:.9rem}
+.mv button{border:0;background:none;color:var(--muted);font-weight:600;font-size:.82rem;padding:6px}
+.madd{display:flex;flex-direction:column;gap:8px;padding:12px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--soft) 55%,var(--surface))}
+.madd .seg{grid-template-columns:1fr 1fr}
+.seg button.I.on{background:var(--ok);color:#fff}
+.seg button.R.on{background:var(--bad);color:#fff}
+.mrow{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+.mrow .inp{min-height:44px;padding:9px 11px;border-radius:11px}
+.mrow .ghost{min-height:44px;color:var(--accent);border-color:var(--accent)}
+.jsum{padding:10px 12px;background:var(--soft);font-size:.86rem;color:var(--muted);border-top:1px solid var(--line)}
+.jsum b{color:var(--ink)}
+.merr{color:var(--bad);font-size:.82rem;font-weight:600}
 .edit label{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:flex;flex-direction:column;gap:4px}
 .edit .inp{min-height:44px;padding:9px 11px;font-size:.95rem;border-radius:11px}
 
@@ -171,7 +191,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 'use strict';
 // Enlace de la Hoja de Google (aplicación web de Apps Script). Se puede cambiar en Ajustes.
 const DEFAULT_URL = '';
-const VERSION = '1.3';
+const VERSION = '1.4';
 
 const COLORS = ['#2E7D4F','#2F6FB5','#B5562F','#8A5CC2','#C29A1F','#2B9A9A','#C2416E','#5E7A2E','#6B6F80'];
 const DEFAULT_CONFIG = {
@@ -218,7 +238,7 @@ const S = {
   reps: LS.get('ac_reps', []),
   lastSync: LS.get('ac_last', 0),
   tab: 'inicio',
-  form: { fecha: hoy(), labor:'', lote:'', cantidad:'', nota:'', valv:{} },
+  form: { fecha: hoy(), labor:'', lote:'', cantidad:'', nota:'', valv:{}, hi:'', hf:'', jor:'', movs:[], md:{t:'I', n:'', h:''}, mdErr:'' },
   edit: null,
   formErr: '',
   editId: null, editErr: '', delId: null,
@@ -280,6 +300,66 @@ function valvWidget(pref, labor, lote, map){
     </div></div>`; }).join('')}
   </div></div>`;
 }
+/* ---------- Horario y jornales ---------- */
+function toMin(h){ const m = /^(\d{1,2}):(\d{2})/.exec(String(h || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
+function movsStr(movs){ return (movs || []).map(m => m.t + m.n + '@' + m.h).join(';'); }
+function movsParse(str){
+  return String(str || '').split(';').map(x => /^([IR])(\d+)@(\d{1,2}:\d{2})$/.exec(x.trim())).filter(Boolean)
+    .map(m => ({t:m[1], n:Number(m[2]), h:m[3]}));
+}
+function movsSort(movs){ return movs.slice().sort((a,b) => toMin(a.h) - toMin(b.h)); }
+/** Recorre el día: devuelve jornales al final, horas-hombre y el primer problema encontrado. */
+function jornCalc(hi, hf, jor, movs){
+  const a = toMin(hi), z = toMin(hf), j0 = Number(jor);
+  const out = {final:null, hh:null, err:''};
+  if (!(j0 >= 0) || String(jor).trim() === '') return out;
+  let n = j0, t = a, hh = 0;
+  for (const m of movsSort(movs)){
+    const mm = toMin(m.h);
+    if (a != null && mm < a){ out.err = `El movimiento de las ${m.h} es antes de la hora de inicio.`; }
+    if (z != null && mm > z){ out.err = out.err || `El movimiento de las ${m.h} es después de la hora de fin.`; }
+    if (t != null && mm >= t){ hh += n * (mm - t); t = mm; }
+    n += m.t === 'I' ? m.n : -m.n;
+    if (n < 0){ out.err = out.err || `A las ${m.h} se retiran más jornales de los que había.`; n = 0; }
+  }
+  out.final = n;
+  if (a != null && z != null && z > a && t != null) out.hh = Math.round((hh + n * (z - t)) / 60 * 100) / 100;
+  return out;
+}
+function jornSum(o){
+  const c = jornCalc(o.hi, o.hf, o.jor, o.movs);
+  if (c.final == null) return 'Escribe los jornales al inicio para ver el resumen.';
+  return `Al final: <b>${c.final} ${c.final === 1 ? 'jornal' : 'jornales'}</b>` + (c.hh != null ? ` · <b>${num(c.hh)}</b> horas-hombre` : '');
+}
+function jornWidget(pref, o){
+  const md = o.md || (o.md = {t:'I', n:'', h:''});
+  const movs = movsSort(o.movs || []);
+  return `<div class="field"><div class="lbl">Horario de la labor</div><div class="pair">
+      <label>Hora inicio<input class="inp" type="time" id="${pref}-hi" value="${esc(o.hi)}"></label>
+      <label>Hora fin<input class="inp" type="time" id="${pref}-hf" value="${esc(o.hf)}"></label></div></div>
+    <div class="field"><label for="${pref}-jor">Jornales al inicio</label>
+      <input class="inp" type="number" inputmode="numeric" min="0" step="1" id="${pref}-jor" placeholder="Ej.: 8" value="${esc(o.jor)}"></div>
+    <div class="field"><div class="lbl">Ingresos y retiros de jornales</div><div class="valv">
+      ${movs.map(m => { const i = o.movs.indexOf(m); return `<div class="mv"><span class="bd ${m.t}">${m.t === 'I' ? '+' + m.n + ' ingresan' : '−' + m.n + ' se retiran'}</span><span>a las ${esc(m.h)}</span><button data-act="mv-del" data-p="${pref}" data-k="${i}">Quitar</button></div>`; }).join('')}
+      <div class="madd">
+        <div class="seg">${[['I','Ingresan'],['R','Se retiran']].map(([k,l]) => `<button class="${k}${md.t === k ? ' on' : ''}" data-act="mv-type" data-p="${pref}" data-v="${k}" aria-pressed="${md.t === k}">${l}</button>`).join('')}</div>
+        <div class="mrow"><label>Cuántos<input class="inp" type="number" inputmode="numeric" min="1" step="1" id="${pref}-mdn" value="${esc(md.n)}"></label>
+          <label>Hora<input class="inp" type="time" id="${pref}-mdh" value="${esc(md.h)}"></label>
+          <button class="ghost" data-act="mv-add" data-p="${pref}">Agregar</button></div>
+        ${o.mdErr ? `<div class="merr">${esc(o.mdErr)}</div>` : ''}
+      </div>
+      <div class="jsum" id="${pref}-jsum">${jornSum(o)}</div>
+    </div></div>`;
+}
+function jornResumen(r){
+  if (!r.hi && !r.jor && r.jor !== 0) return '';
+  const c = jornCalc(r.hi, r.hf, r.jor, movsParse(r.movs));
+  const movs = movsParse(r.movs);
+  let t = `${esc(r.hi || '?')}–${esc(r.hf || '?')} · ${esc(r.jor)} jornales`;
+  if (movs.length) t += ` → ${c.final} al final`;
+  if (c.hh != null) t += ` · ${num(c.hh)} horas-hombre`;
+  return t;
+}
 function unidadOf(labor){ const l = S.config.labores.find(x => x.nombre === labor); return l ? l.unidad : ''; }
 
 /* ---------- Conexión con la Hoja de Google ---------- */
@@ -299,7 +379,8 @@ function api(payload){
   }
   return fetch(u).then(r => r.text()).then(parse);
 }
-function plain(r){ return {id:r.id, fecha:r.fecha, labor:r.labor, lote:r.lote, cantidad:r.cantidad, unidad:r.unidad, nota:r.nota||'', valvulas:r.valvulas||''}; }
+function plain(r){ return {id:r.id, fecha:r.fecha, labor:r.labor, lote:r.lote, cantidad:r.cantidad, unidad:r.unidad, nota:r.nota||'', valvulas:r.valvulas||'',
+  hi:r.hi||'', hf:r.hf||'', jor:r.jor == null ? '' : r.jor, movs:r.movs||''}; }
 
 async function sync(quiet){
   if (S.syncing || !S.url) return;
@@ -417,6 +498,7 @@ function viewReportar(){
       ${loteNames().map(l => `<option value="${esc(l)}"${f.lote === l ? ' selected' : ''}>${esc(l)}</option>`).join('')}
     </select></div>
   ${valvWidget('f', f.labor, f.lote, f.valv)}
+  ${jornWidget('f', f)}
   <div class="field"><label for="f-cant">${u === '%' ? 'Porcentaje de avance' : u === 'plantas' ? 'Plantas avanzadas' : 'Cantidad avanzada'}</label>
     <div class="qty"><input id="f-cant" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(f.cantidad)}"><span>${esc(u || '—')}</span></div></div>
   <div class="field"><label for="f-nota">Nota (opcional)</label><input class="inp" id="f-nota" maxlength="200" placeholder="Ej.: faltó agua en la tarde" value="${esc(f.nota)}"></div>
@@ -449,6 +531,7 @@ function repItem(r){
       <div class="two"><label>Labor<select class="inp" id="e-labor">${opts(labs, e.labor)}</select></label>
       <label>Lote<select class="inp" id="e-lote">${opts(loteNames(), e.lote)}</select></label></div>
       ${valvWidget('e', e.labor, e.lote, e.valv)}
+      ${jornWidget('e', e)}
       <label>Nota<input class="inp" id="e-nota" maxlength="200" value="${esc(e.nota)}"></label>
       ${S.editErr ? `<div class="err">${esc(S.editErr)}</div>` : ''}
       <div class="acts"><button class="ghost" data-act="cancel-edit">Cancelar</button><button class="primary" style="width:auto;padding:9px 18px;font-size:.95rem;border-radius:12px" data-act="save-edit" data-id="${esc(r.id)}">Guardar</button></div>
@@ -457,7 +540,7 @@ function repItem(r){
   const del = S.delId === r.id;
   return `<div class="rep"><div class="row">
     <div class="ico" style="background:${colorOf(r.labor)}">${esc(initials(r.labor))}</div>
-    <div class="nm"><b>${esc(r.labor)} · ${esc(r.lote)}</b>${r.valvulas ? `<span class="vsum">${valvResumen(r.valvulas)}</span>` : ''}${r.nota ? `<span>${esc(r.nota)}</span>` : ''}</div>
+    <div class="nm"><b>${esc(r.labor)} · ${esc(r.lote)}</b>${r.valvulas ? `<span class="vsum">${valvResumen(r.valvulas)}</span>` : ''}${jornResumen(r) ? `<span class="vsum">${jornResumen(r)}</span>` : ''}${r.nota ? `<span>${esc(r.nota)}</span>` : ''}</div>
     <div class="amt">${num(r.cantidad)} ${esc(r.unidad)}${r.estado === 'ok' ? '<span class="st ok">Enviado</span>' : '<span class="st pend">Sin enviar</span>'}</div>
   </div>
   <div class="acts">${del
@@ -513,14 +596,20 @@ function render(){
   document.getElementById('over').innerHTML = S.sheet ? viewSheet() : '';
 }
 
+const CAMPOS = {fecha:'fecha', cant:'cantidad', nota:'nota', hi:'hi', hf:'hf', jor:'jor'};
 document.addEventListener('input', ev => {
-  const id = ev.target.id;
-  if (S.edit && id === 'e-fecha') S.edit.fecha = ev.target.value;
-  else if (S.edit && id === 'e-cant') S.edit.cantidad = ev.target.value;
-  else if (S.edit && id === 'e-nota') S.edit.nota = ev.target.value;
-  if (id === 'f-fecha') S.form.fecha = ev.target.value;
-  else if (id === 'f-cant') S.form.cantidad = ev.target.value;
-  else if (id === 'f-nota') S.form.nota = ev.target.value;
+  const id = ev.target.id, m = /^([fe])-(\w+)$/.exec(id || '');
+  if (m){
+    const o = m[1] === 'e' ? S.edit : S.form;
+    if (o){
+      if (CAMPOS[m[2]]) o[CAMPOS[m[2]]] = ev.target.value;
+      else if (m[2] === 'mdn' || m[2] === 'mdh'){
+        o.md[m[2] === 'mdn' ? 'n' : 'h'] = ev.target.value;
+        if (o.mdErr){ o.mdErr = ''; const e = ev.target.closest('.madd') && ev.target.closest('.madd').querySelector('.merr'); if (e) e.remove(); }
+      }
+      if (['hi','hf','jor'].includes(m[2])){ const js = document.getElementById(m[1] + '-jsum'); if (js) js.innerHTML = jornSum(o); }
+    }
+  }
   if (S.formErr && id && id.startsWith('f-')){ S.formErr = ''; const e = document.querySelector('.app > .err'); if (e) e.remove(); }
 });
 document.addEventListener('change', ev => {
@@ -534,8 +623,9 @@ document.addEventListener('change', ev => {
 function readForm(){
   const g = id => document.getElementById(id);
   if (g('f-fecha')) S.form.fecha = g('f-fecha').value || S.form.fecha;
-  if (g('f-cant')) S.form.cantidad = g('f-cant').value;
-  if (g('f-nota')) S.form.nota = g('f-nota').value;
+  for (const [k, f] of Object.entries(CAMPOS)){ if (k !== 'fecha' && g('f-' + k)) S.form[f] = g('f-' + k).value; }
+  if (g('f-mdn')) S.form.md.n = g('f-mdn').value;
+  if (g('f-mdh')) S.form.md.h = g('f-mdh').value;
 }
 
 let toastT;
@@ -553,6 +643,12 @@ function validar(r){
   if (!(c > 0)) return 'Escribe una cantidad mayor que cero.';
   if (r.unidad === '%' && c > 100) return 'El porcentaje no puede pasar de 100.';
   if (porValv(r.labor) && valvesOf(r.lote).length && !/=(T|M)/.test(r.valvulas || '')) return 'Marca qué válvulas terminaste o dejaste a medias.';
+  if (!r.hi) return 'Pon la hora de inicio.';
+  if (!r.hf) return 'Pon la hora de fin.';
+  if (toMin(r.hf) <= toMin(r.hi)) return 'La hora de fin debe ser después de la hora de inicio.';
+  if (String(r.jor).trim() === '' || !(Number(r.jor) >= 1) || !Number.isInteger(Number(r.jor))) return 'Escribe cuántos jornales empezaron (número entero).';
+  const jc = jornCalc(r.hi, r.hf, r.jor, movsParse(r.movs));
+  if (jc.err) return jc.err;
   return '';
 }
 
@@ -577,16 +673,33 @@ document.addEventListener('click', async ev => {
       if (b.dataset.p === 'e') S.editErr = ''; else S.formErr = '';
       render(); return;
     }
+    case 'mv-type': { const o = b.dataset.p === 'e' ? S.edit : S.form; if (!o) return; if (b.dataset.p === 'f') readForm(); o.md.t = v; o.mdErr = ''; render(); return; }
+    case 'mv-add': {
+      const o = b.dataset.p === 'e' ? S.edit : S.form; if (!o) return; if (b.dataset.p === 'f') readForm();
+      const n = Number(o.md.n), h = o.md.h;
+      if (!(n >= 1) || !Number.isInteger(n)){ o.mdErr = 'Escribe cuántos jornales (número entero).'; render(); return; }
+      if (!h){ o.mdErr = 'Pon la hora del movimiento.'; render(); return; }
+      if (o.hi && toMin(h) < toMin(o.hi)){ o.mdErr = 'La hora es antes del inicio de la labor.'; render(); return; }
+      if (o.hf && toMin(h) > toMin(o.hf)){ o.mdErr = 'La hora es después del fin de la labor.'; render(); return; }
+      const prueba = jornCalc(o.hi, o.hf, o.jor === '' ? 9999 : o.jor, (o.movs || []).concat([{t:o.md.t, n, h}]));
+      if (o.jor !== '' && prueba.err && /retiran más/.test(prueba.err)){ o.mdErr = 'No pueden retirarse más jornales de los que hay.'; render(); return; }
+      o.movs = (o.movs || []).concat([{t:o.md.t, n, h}]);
+      o.md = {t:o.md.t, n:'', h:''}; o.mdErr = '';
+      if (b.dataset.p === 'e') S.editErr = ''; else S.formErr = '';
+      render(); return;
+    }
+    case 'mv-del': { const o = b.dataset.p === 'e' ? S.edit : S.form; if (!o) return; if (b.dataset.p === 'f') readForm(); o.movs.splice(Number(b.dataset.k), 1); render(); return; }
     case 'enviar': {
       readForm();
       const r = {id:newId(), fecha:S.form.fecha, labor:S.form.labor, lote:S.form.lote,
                  cantidad:S.form.cantidad, unidad:unidadOf(S.form.labor), nota:S.form.nota.trim(),
                  valvulas:valvString(S.form.labor, S.form.lote, S.form.valv),
+                 hi:S.form.hi, hf:S.form.hf, jor:S.form.jor, movs:movsStr(movsSort(S.form.movs)),
                  creado:Date.now(), estado:'pend'};
       const err = validar(r); S.formErr = err; if (err){ render(); return; }
-      r.cantidad = Number(String(r.cantidad).replace(',', '.'));
+      r.cantidad = Number(String(r.cantidad).replace(',', '.')); r.jor = Number(r.jor);
       S.reps.unshift(r); save();
-      S.form = {fecha:S.form.fecha, labor:'', lote:'', cantidad:'', nota:'', valv:{}};
+      S.form = {fecha:S.form.fecha, labor:'', lote:'', cantidad:'', nota:'', valv:{}, hi:'', hf:'', jor:'', movs:[], md:{t:'I', n:'', h:''}, mdErr:''};
       if (!S.url){ render(); toast('Guardado en el celular. Falta conectar la hoja.', 'warn'); return; }
       S.sending = true; render();
       try{
@@ -598,7 +711,8 @@ document.addEventListener('click', async ev => {
     }
     case 'edit': {
       const r = S.reps.find(x => x.id === id); if (!r) return;
-      S.edit = {fecha:r.fecha, cantidad:r.cantidad, labor:r.labor, lote:r.lote, nota:r.nota || '', valv:valvMap(r.valvulas)};
+      S.edit = {fecha:r.fecha, cantidad:r.cantidad, labor:r.labor, lote:r.lote, nota:r.nota || '', valv:valvMap(r.valvulas),
+                hi:r.hi || '', hf:r.hf || '', jor:r.jor == null ? '' : String(r.jor), movs:movsParse(r.movs), md:{t:'I', n:'', h:''}, mdErr:''};
       S.editId = id; S.editErr = ''; S.delId = null; render(); return;
     }
     case 'cancel-edit': S.editId = null; S.edit = null; S.editErr = ''; render(); return;
@@ -606,10 +720,11 @@ document.addEventListener('click', async ev => {
       const r = S.reps.find(x => x.id === id); if (!r) return;
       const e = S.edit;
       const n = Object.assign({}, r, {fecha:e.fecha, cantidad:e.cantidad, labor:e.labor, lote:e.lote, nota:String(e.nota).trim(),
-                                      valvulas:valvString(e.labor, e.lote, e.valv)});
+                                      valvulas:valvString(e.labor, e.lote, e.valv),
+                                      hi:e.hi, hf:e.hf, jor:e.jor, movs:movsStr(movsSort(e.movs))});
       n.unidad = unidadOf(n.labor) || r.unidad;
       const err = validar(n); if (err){ S.editErr = err; render(); return; }
-      n.cantidad = Number(String(n.cantidad).replace(',', '.'));
+      n.cantidad = Number(String(n.cantidad).replace(',', '.')); n.jor = Number(n.jor);
       Object.assign(r, n, {estado:'pend', editado:Date.now()}); save();
       S.editId = null; S.edit = null; S.editErr = ''; render();
       if (S.url){
