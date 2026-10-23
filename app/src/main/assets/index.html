@@ -200,7 +200,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 'use strict';
 // Enlace de la Hoja de Google (aplicación web de Apps Script). Se puede cambiar en Ajustes.
 const DEFAULT_URL = '';
-const VERSION = '1.5';
+const VERSION = '1.6';
 
 const COLORS = ['#2E7D4F','#2F6FB5','#B5562F','#8A5CC2','#C29A1F','#2B9A9A','#C2416E','#5E7A2E','#6B6F80'];
 const DEFAULT_CONFIG = {
@@ -208,7 +208,7 @@ const DEFAULT_CONFIG = {
     {nombre:'Deshierbo manual',unidad:'plantas',valvulas:true},{nombre:'Deshierbo a lampa',unidad:'plantas',valvulas:true},
     {nombre:'Encamado',unidad:'m lineales'},{nombre:'Cosecha',unidad:'jabas'}
   ],
-  lotes: ['L1A','L2A','L3A','L4A','L5A','L6A','L7A','L8A','L9A','L10A','L11A','L12A','L12B','L13A','L13B','L14A','L15A','L16A']
+  lotes: ['L1A','L2A','L3A','L4A','L5A','L6A','L7A','L8A','L9A','L10A','L11B','L12A','L12B','L13A','L13B','L14A','L15A','L16A']
     .map(n => ({nombre:n, valvulas: n === 'L8A' ? ['35','36','37','38','39','40','41'] : []}))
 };
 

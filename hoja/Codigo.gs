@@ -17,7 +17,7 @@ const COLS = ['ID', 'Fecha', 'Auxiliar', 'Labor', 'Lote', 'Cantidad', 'Unidad',
 const OCULTAS = ['ID', 'Dispositivo', 'Datos válvulas', 'Datos jornales'];
 const COLS_TEXTO = ['Hora inicio', 'Hora fin', 'Datos jornales', 'Datos válvulas'];
 
-const LOTES = ['L1A', 'L2A', 'L3A', 'L4A', 'L5A', 'L6A', 'L7A', 'L8A', 'L9A', 'L10A', 'L11A',
+const LOTES = ['L1A', 'L2A', 'L3A', 'L4A', 'L5A', 'L6A', 'L7A', 'L8A', 'L9A', 'L10A', 'L11B',
                'L12A', 'L12B', 'L13A', 'L13B', 'L14A', 'L15A', 'L16A'];
 
 function doGet(e) {
