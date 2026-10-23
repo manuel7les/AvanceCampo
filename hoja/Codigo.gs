@@ -212,7 +212,7 @@ function calcularJornales(hi, hf, jor, movs) {
     n = Math.max(0, n + (m.t === 'I' ? m.n : -m.n));
   });
   const horas = (a != null && z != null && z > a && t != null) ? Math.round((hh + n * (z - t)) / 60 * 100) / 100 : '';
-  const texto = movs.map(m => (m.t === 'I' ? 'Ingresan ' : 'Se retiran ') + m.n + ' a las ' + m.h).join(' · ');
+  const texto = movs.map(m => (m.t === 'I' ? 'Ingresan ' : 'Salen ') + m.n + ' a las ' + m.h).join(' · ');
   return { final: n, horas: horas, texto: texto };
 }
 

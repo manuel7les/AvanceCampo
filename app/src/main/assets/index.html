@@ -149,6 +149,15 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .jsum{padding:10px 12px;background:var(--soft);font-size:.86rem;color:var(--muted);border-top:1px solid var(--line)}
 .jsum b{color:var(--ink)}
 .merr{color:var(--bad);font-size:.82rem;font-weight:600}
+.blk{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:16px}
+.blk-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.blk-h h3{font-size:1.05rem;font-weight:700;display:flex;align-items:center;gap:8px}
+.blk-h h3 i{font-style:normal;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:.8rem;font-family:var(--body)}
+.blk .valv{background:var(--bg)}
+.blk .inp{background:var(--bg)}
+.blk .qty{background:var(--bg)}
+.addblk{border:2px dashed var(--line);background:none;border-radius:18px;padding:14px;font-weight:700;color:var(--accent);font-size:1rem}
+.step{font-size:.72rem;font-weight:800;color:var(--accent);letter-spacing:.04em}
 .edit label{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:flex;flex-direction:column;gap:4px}
 .edit .inp{min-height:44px;padding:9px 11px;font-size:.95rem;border-radius:11px}
 
@@ -191,7 +200,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 'use strict';
 // Enlace de la Hoja de Google (aplicación web de Apps Script). Se puede cambiar en Ajustes.
 const DEFAULT_URL = '';
-const VERSION = '1.4';
+const VERSION = '1.5';
 
 const COLORS = ['#2E7D4F','#2F6FB5','#B5562F','#8A5CC2','#C29A1F','#2B9A9A','#C2416E','#5E7A2E','#6B6F80'];
 const DEFAULT_CONFIG = {
@@ -238,7 +247,7 @@ const S = {
   reps: LS.get('ac_reps', []),
   lastSync: LS.get('ac_last', 0),
   tab: 'inicio',
-  form: { fecha: hoy(), labor:'', lote:'', cantidad:'', nota:'', valv:{}, hi:'', hf:'', jor:'', movs:[], md:{t:'I', n:'', h:''}, mdErr:'' },
+  form: { fecha: hoy(), labor:'', bloques:[] }, blkDel: null,
   edit: null,
   formErr: '',
   editId: null, editErr: '', delId: null,
@@ -331,18 +340,17 @@ function jornSum(o){
   if (c.final == null) return 'Escribe los jornales al inicio para ver el resumen.';
   return `Al final: <b>${c.final} ${c.final === 1 ? 'jornal' : 'jornales'}</b>` + (c.hh != null ? ` · <b>${num(c.hh)}</b> horas-hombre` : '');
 }
-function jornWidget(pref, o){
+function jorField(pref, o){
+  return `<div class="field"><label for="${pref}-jor">Jornales al inicio</label>
+      <input class="inp" type="number" inputmode="numeric" min="0" step="1" id="${pref}-jor" placeholder="Ej.: 8" value="${esc(o.jor)}"></div>`;
+}
+function movsField(pref, o){
   const md = o.md || (o.md = {t:'I', n:'', h:''});
   const movs = movsSort(o.movs || []);
-  return `<div class="field"><div class="lbl">Horario de la labor</div><div class="pair">
-      <label>Hora inicio<input class="inp" type="time" id="${pref}-hi" value="${esc(o.hi)}"></label>
-      <label>Hora fin<input class="inp" type="time" id="${pref}-hf" value="${esc(o.hf)}"></label></div></div>
-    <div class="field"><label for="${pref}-jor">Jornales al inicio</label>
-      <input class="inp" type="number" inputmode="numeric" min="0" step="1" id="${pref}-jor" placeholder="Ej.: 8" value="${esc(o.jor)}"></div>
-    <div class="field"><div class="lbl">Ingresos y retiros de jornales</div><div class="valv">
-      ${movs.map(m => { const i = o.movs.indexOf(m); return `<div class="mv"><span class="bd ${m.t}">${m.t === 'I' ? '+' + m.n + ' ingresan' : '−' + m.n + ' se retiran'}</span><span>a las ${esc(m.h)}</span><button data-act="mv-del" data-p="${pref}" data-k="${i}">Quitar</button></div>`; }).join('')}
+  return `<div class="field"><div class="lbl">Ingreso y salida de jornales</div><div class="valv">
+      ${movs.map(m => { const i = o.movs.indexOf(m); return `<div class="mv"><span class="bd ${m.t}">${m.t === 'I' ? '+' + m.n + ' ingresan' : '−' + m.n + ' salen'}</span><span>a las ${esc(m.h)}</span><button data-act="mv-del" data-p="${pref}" data-k="${i}">Quitar</button></div>`; }).join('')}
       <div class="madd">
-        <div class="seg">${[['I','Ingresan'],['R','Se retiran']].map(([k,l]) => `<button class="${k}${md.t === k ? ' on' : ''}" data-act="mv-type" data-p="${pref}" data-v="${k}" aria-pressed="${md.t === k}">${l}</button>`).join('')}</div>
+        <div class="seg">${[['I','Ingresan'],['R','Salen']].map(([k,l]) => `<button class="${k}${md.t === k ? ' on' : ''}" data-act="mv-type" data-p="${pref}" data-v="${k}" aria-pressed="${md.t === k}">${l}</button>`).join('')}</div>
         <div class="mrow"><label>Cuántos<input class="inp" type="number" inputmode="numeric" min="1" step="1" id="${pref}-mdn" value="${esc(md.n)}"></label>
           <label>Hora<input class="inp" type="time" id="${pref}-mdh" value="${esc(md.h)}"></label>
           <button class="ghost" data-act="mv-add" data-p="${pref}">Agregar</button></div>
@@ -350,6 +358,36 @@ function jornWidget(pref, o){
       </div>
       <div class="jsum" id="${pref}-jsum">${jornSum(o)}</div>
     </div></div>`;
+}
+function horarioField(pref, o){
+  return `<div class="field"><div class="lbl">Inicio y final de labor</div><div class="pair">
+      <label>Hora inicio<input class="inp" type="time" id="${pref}-hi" value="${esc(o.hi)}"></label>
+      <label>Hora final<input class="inp" type="time" id="${pref}-hf" value="${esc(o.hf)}"></label></div></div>`;
+}
+function avanceField(pref, labor, o){
+  const u = unidadOf(labor);
+  return `${valvWidget(pref, labor, o.lote, o.valv)}
+    <div class="field"><label for="${pref}-cant">${u === '%' ? 'Avance (porcentaje)' : u === 'plantas' ? 'Avance: plantas avanzadas' : 'Avance'}</label>
+    <div class="qty"><input id="${pref}-cant" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(o.cantidad)}"><span>${esc(u || '—')}</span></div></div>`;
+}
+function loteSelect(id, val){
+  return `<select class="inp sel-dd${val ? '' : ' ph'}" id="${id}">
+      <option value=""${val ? '' : ' selected'} disabled>Elige el lote</option>
+      ${loteNames().map(l => `<option value="${esc(l)}"${val === l ? ' selected' : ''}>${esc(l)}</option>`).join('')}
+    </select>`;
+}
+function nuevoBloque(prev){
+  const b = {lote:'', valv:{}, hi:'', hf:'', jor:'', movs:[], md:{t:'I', n:'', h:''}, mdErr:'', cantidad:'', nota:''};
+  if (prev){ // al pasar a otro lote: empieza donde terminó el anterior
+    b.hi = prev.hf || '';
+    const c = jornCalc(prev.hi, prev.hf, prev.jor, prev.movs);
+    if (c.final != null) b.jor = String(c.final);
+  }
+  return b;
+}
+function objOf(p){
+  if (p === 'e') return S.edit;
+  const m = /^f(\d+)$/.exec(p || ''); return m ? S.form.bloques[Number(m[1])] : null;
 }
 function jornResumen(r){
   if (!r.hi && !r.jor && r.jor !== 0) return '';
@@ -484,26 +522,31 @@ function viewInicio(){
 function hora(ts){ const d = new Date(ts); return (isoDate(d) === hoy() ? 'hoy' : fechaLarga(isoDate(d))) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 
 function viewReportar(){
-  const f = S.form, u = unidadOf(f.labor);
+  const f = S.form;
+  if (!f.bloques.length) f.bloques.push(nuevoBloque());
+  const n = f.bloques.length;
   return `${banners()}
   <div class="field"><label for="f-fecha">Fecha</label><input class="inp" type="date" id="f-fecha" value="${esc(f.fecha)}" max="${hoy()}"></div>
-  <div class="field"><label for="f-labor">Labor</label>
-    <select class="inp sel-dd${f.labor ? '' : ' ph'}" id="f-labor">
-      <option value=""${f.labor ? '' : ' selected'} disabled>Elige la labor</option>
-      ${S.config.labores.map(l => `<option value="${esc(l.nombre)}"${f.labor === l.nombre ? ' selected' : ''}>${esc(l.nombre)} (${esc(l.unidad)})</option>`).join('')}
-    </select></div>
-  <div class="field"><label for="f-lote">Lote</label>
-    <select class="inp sel-dd${f.lote ? '' : ' ph'}" id="f-lote">
-      <option value=""${f.lote ? '' : ' selected'} disabled>Elige el lote</option>
-      ${loteNames().map(l => `<option value="${esc(l)}"${f.lote === l ? ' selected' : ''}>${esc(l)}</option>`).join('')}
-    </select></div>
-  ${valvWidget('f', f.labor, f.lote, f.valv)}
-  ${jornWidget('f', f)}
-  <div class="field"><label for="f-cant">${u === '%' ? 'Porcentaje de avance' : u === 'plantas' ? 'Plantas avanzadas' : 'Cantidad avanzada'}</label>
-    <div class="qty"><input id="f-cant" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(f.cantidad)}"><span>${esc(u || '—')}</span></div></div>
-  <div class="field"><label for="f-nota">Nota (opcional)</label><input class="inp" id="f-nota" maxlength="200" placeholder="Ej.: faltó agua en la tarde" value="${esc(f.nota)}"></div>
+    <div class="field"><label for="f-labor">Labor</label>
+      <select class="inp sel-dd${f.labor ? '' : ' ph'}" id="f-labor">
+        <option value=""${f.labor ? '' : ' selected'} disabled>Elige la labor</option>
+        ${S.config.labores.map(l => `<option value="${esc(l.nombre)}"${f.labor === l.nombre ? ' selected' : ''}>${esc(l.nombre)} (${esc(l.unidad)})</option>`).join('')}
+      </select></div>
+  ${f.bloques.map((b, i) => `<section class="blk" aria-label="Lote ${i + 1}">
+    <div class="blk-h"><h3><i>${i + 1}</i>${b.lote ? esc(b.lote) : 'Lote'}</h3>
+      ${n > 1 ? (S.blkDel === i
+        ? `<span class="acts"><button class="ghost" data-act="blk-del-no">No</button><button class="danger" data-act="blk-del" data-k="${i}">¿Quitar? Sí</button></span>`
+        : `<button class="link" data-act="blk-ask" data-k="${i}">Quitar lote</button>`) : ''}</div>
+    <div class="field"><label for="f${i}-lote">Lote</label>${loteSelect('f' + i + '-lote', b.lote)}</div>
+    ${jorField('f' + i, b)}
+    ${movsField('f' + i, b)}
+    ${horarioField('f' + i, b)}
+    ${avanceField('f' + i, f.labor, b)}
+    <div class="field"><label for="f${i}-nota">Nota (opcional)</label><input class="inp" id="f${i}-nota" maxlength="200" placeholder="Ej.: faltó agua en la tarde" value="${esc(b.nota)}"></div>
+  </section>`).join('')}
+  <button class="addblk" data-act="blk-add">+ Agregar otro lote</button>
   ${S.formErr ? `<div class="err">${esc(S.formErr)}</div>` : ''}
-  <button class="primary" data-act="enviar" ${S.sending ? 'disabled' : ''}>${S.sending ? '<span class="spin"></span> Enviando…' : 'Enviar reporte'}</button>`;
+  <button class="primary" data-act="enviar" ${S.sending ? 'disabled' : ''}>${S.sending ? '<span class="spin"></span> Enviando…' : n > 1 ? `Enviar reporte (${n} lotes)` : 'Enviar reporte'}</button>`;
 }
 
 function opts(list, sel){ const has = list.includes(sel); return (has ? '' : `<option selected>${esc(sel)}</option>`) + list.map(v => `<option${v === sel ? ' selected' : ''}>${esc(v)}</option>`).join(''); }
@@ -527,11 +570,12 @@ function repItem(r){
     const e = S.edit, labs = S.config.labores.map(l => l.nombre);
     return `<div class="rep"><div class="edit">
       <div class="two"><label>Fecha<input class="inp" type="date" id="e-fecha" value="${esc(e.fecha)}" max="${hoy()}"></label>
-      <label>${esc(unidadOf(e.labor) || 'Cantidad')}<input class="inp" type="number" inputmode="decimal" step="any" id="e-cant" value="${esc(e.cantidad)}"></label></div>
-      <div class="two"><label>Labor<select class="inp" id="e-labor">${opts(labs, e.labor)}</select></label>
-      <label>Lote<select class="inp" id="e-lote">${opts(loteNames(), e.lote)}</select></label></div>
-      ${valvWidget('e', e.labor, e.lote, e.valv)}
-      ${jornWidget('e', e)}
+      <label>Labor<select class="inp" id="e-labor">${opts(labs, e.labor)}</select></label></div>
+      <label>Lote<select class="inp" id="e-lote">${opts(loteNames(), e.lote)}</select></label>
+      ${jorField('e', e)}
+      ${movsField('e', e)}
+      ${horarioField('e', e)}
+      ${avanceField('e', e.labor, e)}
       <label>Nota<input class="inp" id="e-nota" maxlength="200" value="${esc(e.nota)}"></label>
       ${S.editErr ? `<div class="err">${esc(S.editErr)}</div>` : ''}
       <div class="acts"><button class="ghost" data-act="cancel-edit">Cancelar</button><button class="primary" style="width:auto;padding:9px 18px;font-size:.95rem;border-radius:12px" data-act="save-edit" data-id="${esc(r.id)}">Guardar</button></div>
@@ -598,9 +642,9 @@ function render(){
 
 const CAMPOS = {fecha:'fecha', cant:'cantidad', nota:'nota', hi:'hi', hf:'hf', jor:'jor'};
 document.addEventListener('input', ev => {
-  const id = ev.target.id, m = /^([fe])-(\w+)$/.exec(id || '');
+  const id = ev.target.id, m = /^(e|f\d*)-(\w+)$/.exec(id || '');
   if (m){
-    const o = m[1] === 'e' ? S.edit : S.form;
+    const o = m[1] === 'f' ? S.form : objOf(m[1]);
     if (o){
       if (CAMPOS[m[2]]) o[CAMPOS[m[2]]] = ev.target.value;
       else if (m[2] === 'mdn' || m[2] === 'mdh'){
@@ -610,22 +654,24 @@ document.addEventListener('input', ev => {
       if (['hi','hf','jor'].includes(m[2])){ const js = document.getElementById(m[1] + '-jsum'); if (js) js.innerHTML = jornSum(o); }
     }
   }
-  if (S.formErr && id && id.startsWith('f-')){ S.formErr = ''; const e = document.querySelector('.app > .err'); if (e) e.remove(); }
+  if (S.formErr && id && id.startsWith('f')){ S.formErr = ''; const e = document.querySelector('.app > .err'); if (e) e.remove(); }
 });
 document.addEventListener('change', ev => {
   const id = ev.target.id;
   if (id === 'f-fecha') S.form.fecha = ev.target.value || hoy();
   else if (id === 'f-labor'){ readForm(); S.form.labor = ev.target.value; S.formErr = ''; render(); }
-  else if (id === 'f-lote'){ readForm(); if (S.form.lote !== ev.target.value) S.form.valv = {}; S.form.lote = ev.target.value; S.formErr = ''; render(); }
+  else if (/^f\d+-lote$/.test(id)){ readForm(); const o = objOf(id.split('-')[0]); if (o.lote !== ev.target.value) o.valv = {}; o.lote = ev.target.value; S.formErr = ''; render(); }
   else if (S.edit && id === 'e-labor'){ S.edit.labor = ev.target.value; S.editErr = ''; render(); }
   else if (S.edit && id === 'e-lote'){ S.edit.lote = ev.target.value; S.edit.valv = {}; S.editErr = ''; render(); }
 });
 function readForm(){
   const g = id => document.getElementById(id);
   if (g('f-fecha')) S.form.fecha = g('f-fecha').value || S.form.fecha;
-  for (const [k, f] of Object.entries(CAMPOS)){ if (k !== 'fecha' && g('f-' + k)) S.form[f] = g('f-' + k).value; }
-  if (g('f-mdn')) S.form.md.n = g('f-mdn').value;
-  if (g('f-mdh')) S.form.md.h = g('f-mdh').value;
+  S.form.bloques.forEach((b, i) => {
+    for (const [k, f] of Object.entries(CAMPOS)){ if (k !== 'fecha' && g('f' + i + '-' + k)) b[f] = g('f' + i + '-' + k).value; }
+    if (g('f' + i + '-mdn')) b.md.n = g('f' + i + '-mdn').value;
+    if (g('f' + i + '-mdh')) b.md.h = g('f' + i + '-mdh').value;
+  });
 }
 
 let toastT;
@@ -663,19 +709,17 @@ document.addEventListener('click', async ev => {
       if (n.length < 2){ S.setErr = 'Escribe tu nombre.'; render(); return; }
       S.setErr = ''; S.nombre = n; LS.set('ac_nombre', n); render(); sync(true); return;
     }
-    case 'tab': readForm(); S.tab = v; S.editId = null; S.delId = null; render(); window.scrollTo(0,0); if (v === 'mis') sync(true); return;
-    case 'pick-labor': readForm(); S.form.labor = v; S.formErr = ''; render(); return;
-    case 'pick-lote': readForm(); if (S.form.lote !== v) S.form.valv = {}; S.form.lote = v; S.formErr = ''; render(); return;
+    case 'tab': readForm(); S.blkDel = null; S.tab = v; S.editId = null; S.delId = null; render(); window.scrollTo(0,0); if (v === 'mis') sync(true); return;
     case 'valv': case 'valv-all': {
-      const o = b.dataset.p === 'e' ? S.edit : S.form; if (!o) return;
+      if (b.dataset.p !== 'e') readForm(); const o = objOf(b.dataset.p); if (!o) return;
       if (act === 'valv') o.valv[b.dataset.k] = v;
       else valvesOf(o.lote).forEach(k => { o.valv[k] = 'T'; });
       if (b.dataset.p === 'e') S.editErr = ''; else S.formErr = '';
       render(); return;
     }
-    case 'mv-type': { const o = b.dataset.p === 'e' ? S.edit : S.form; if (!o) return; if (b.dataset.p === 'f') readForm(); o.md.t = v; o.mdErr = ''; render(); return; }
+    case 'mv-type': { if (b.dataset.p !== 'e') readForm(); const o = objOf(b.dataset.p); if (!o) return; o.md.t = v; o.mdErr = ''; render(); return; }
     case 'mv-add': {
-      const o = b.dataset.p === 'e' ? S.edit : S.form; if (!o) return; if (b.dataset.p === 'f') readForm();
+      if (b.dataset.p !== 'e') readForm(); const o = objOf(b.dataset.p); if (!o) return;
       const n = Number(o.md.n), h = o.md.h;
       if (!(n >= 1) || !Number.isInteger(n)){ o.mdErr = 'Escribe cuántos jornales (número entero).'; render(); return; }
       if (!h){ o.mdErr = 'Pon la hora del movimiento.'; render(); return; }
@@ -688,25 +732,44 @@ document.addEventListener('click', async ev => {
       if (b.dataset.p === 'e') S.editErr = ''; else S.formErr = '';
       render(); return;
     }
-    case 'mv-del': { const o = b.dataset.p === 'e' ? S.edit : S.form; if (!o) return; if (b.dataset.p === 'f') readForm(); o.movs.splice(Number(b.dataset.k), 1); render(); return; }
+    case 'mv-del': { if (b.dataset.p !== 'e') readForm(); const o = objOf(b.dataset.p); if (!o) return; o.movs.splice(Number(b.dataset.k), 1); render(); return; }
+    case 'blk-add': {
+      readForm(); const prev = S.form.bloques[S.form.bloques.length - 1];
+      S.form.bloques.push(nuevoBloque(prev)); S.formErr = ''; S.blkDel = null; render();
+      const secs = document.querySelectorAll('.blk'); if (secs.length) secs[secs.length - 1].scrollIntoView({behavior:'smooth', block:'start'});
+      return;
+    }
+    case 'blk-ask': readForm(); S.blkDel = Number(b.dataset.k); render(); return;
+    case 'blk-del-no': readForm(); S.blkDel = null; render(); return;
+    case 'blk-del': readForm(); S.form.bloques.splice(Number(b.dataset.k), 1); S.blkDel = null; S.formErr = ''; render(); return;
     case 'enviar': {
       readForm();
-      const r = {id:newId(), fecha:S.form.fecha, labor:S.form.labor, lote:S.form.lote,
-                 cantidad:S.form.cantidad, unidad:unidadOf(S.form.labor), nota:S.form.nota.trim(),
-                 valvulas:valvString(S.form.labor, S.form.lote, S.form.valv),
-                 hi:S.form.hi, hf:S.form.hf, jor:S.form.jor, movs:movsStr(movsSort(S.form.movs)),
-                 creado:Date.now(), estado:'pend'};
-      const err = validar(r); S.formErr = err; if (err){ render(); return; }
-      r.cantidad = Number(String(r.cantidad).replace(',', '.')); r.jor = Number(r.jor);
-      S.reps.unshift(r); save();
-      S.form = {fecha:S.form.fecha, labor:'', lote:'', cantidad:'', nota:'', valv:{}, hi:'', hf:'', jor:'', movs:[], md:{t:'I', n:'', h:''}, mdErr:''};
+      const f = S.form;
+      if (!f.fecha){ S.formErr = 'Elige la fecha.'; render(); return; }
+      if (!f.labor){ S.formErr = 'Elige la labor.'; render(); return; }
+      const base = Date.now();
+      const nuevos = f.bloques.map((bl, i) => ({id:newId(), fecha:f.fecha, labor:f.labor, lote:bl.lote,
+                 cantidad:bl.cantidad, unidad:unidadOf(f.labor), nota:String(bl.nota || '').trim(),
+                 valvulas:valvString(f.labor, bl.lote, bl.valv),
+                 hi:bl.hi, hf:bl.hf, jor:bl.jor, movs:movsStr(movsSort(bl.movs)),
+                 creado:base + i, estado:'pend'}));
+      for (let i = 0; i < nuevos.length; i++){
+        const err = validar(nuevos[i]);
+        if (err){ S.formErr = (nuevos.length > 1 ? `Lote ${i + 1}${nuevos[i].lote ? ' (' + nuevos[i].lote + ')' : ''}: ` : '') + err; render(); return; }
+      }
+      S.formErr = '';
+      nuevos.forEach(r => { r.cantidad = Number(String(r.cantidad).replace(',', '.')); r.jor = Number(r.jor); });
+      S.reps = nuevos.slice().reverse().concat(S.reps); save();
+      S.form = {fecha:f.fecha, labor:'', bloques:[]}; S.blkDel = null;
       if (!S.url){ render(); toast('Guardado en el celular. Falta conectar la hoja.', 'warn'); return; }
-      S.sending = true; render();
-      try{
-        await api({accion:'guardar', dispositivo:DEV, auxiliar:S.nombre, reporte:plain(r)});
-        r.estado = 'ok'; r.enviado = true; save(); S.online = true;
-        toast('Reporte enviado ✓');
-      }catch(e){ S.online = false; toast(e.message === 'Sin conexión' ? 'Sin señal: se enviará luego.' : e.message, 'warn'); }
+      S.sending = true; render(); window.scrollTo(0, 0);
+      let fallo = null;
+      for (const r of nuevos){
+        try{ await api({accion:'guardar', dispositivo:DEV, auxiliar:S.nombre, reporte:plain(r)}); r.estado = 'ok'; r.enviado = true; save(); S.online = true; }
+        catch(e){ fallo = e; if (/conexi|respuesta/i.test(e.message)){ S.online = false; break; } }
+      }
+      if (!fallo) toast(nuevos.length > 1 ? `Reporte enviado: ${nuevos.length} lotes ✓` : 'Reporte enviado ✓');
+      else toast(/conexi|respuesta/i.test(fallo.message) ? 'Sin señal: se enviará luego.' : fallo.message, 'warn');
       S.sending = false; render(); return;
     }
     case 'edit': {
